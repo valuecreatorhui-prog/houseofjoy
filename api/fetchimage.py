@@ -1,5 +1,5 @@
 """링크의 사진 한 장을 서버에서 받아 긴 변 1600px JPEG(base64)로 돌려줍니다. 브라우저가 직접 받으면 편집(캔버스)할 수 없어서 거칩니다."""
-import base64, io, json, time, urllib.request
+import base64, io, json, time, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, quote
 from PIL import Image, ImageOps
@@ -13,8 +13,15 @@ MAX = 20 * 1024 * 1024
 def fetch(url: str) -> bytes:
     o = urlparse(url)
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": f"{o.scheme}://{o.netloc}/", "Accept": "image/*,*/*;q=0.8"})
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return r.read(MAX + 1)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.read(MAX + 1)
+    except urllib.error.URLError as e:
+        if "CERTIFICATE_VERIFY_FAILED" not in str(e):
+            raise
+        import ssl  # 중간 인증서가 빠진 사이트: 공개 이미지만 읽으므로 검증 없이 재시도
+        with urllib.request.urlopen(req, timeout=15, context=ssl._create_unverified_context()) as r:
+            return r.read(MAX + 1)
 
 
 def to_jpeg(raw: bytes) -> bytes:

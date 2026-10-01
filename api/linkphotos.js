@@ -4,12 +4,28 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 const naverThumb = src => `https://search.pstatic.net/common/?autoRotate=true&type=w560_sharpen&src=${encodeURIComponent(src)}`;
 const decode = s => s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 
+const https = require("https");
+const http = require("http");
+const isCertError = e => /CERT|certificate|UNABLE_TO_VERIFY|SELF_SIGNED|ERR_TLS/i.test(String(e && (e.cause && (e.cause.code || e.cause.message) || e.code || e.message)));
+function rawGet(url, insecure, hops = 0) {   // 인증서 검증을 끈 보조 요청 (중간 인증서가 빠진 쇼핑몰 등). 리다이렉트 5회까지.
+  return new Promise((resolve, reject) => {
+    const u = new URL(url); const mod = u.protocol === "http:" ? http : https;
+    const req = mod.request(u, { method: "GET", headers: { "User-Agent": UA, "Accept-Language": "ko-KR,ko;q=0.9", Accept: "text/html,*/*" }, rejectUnauthorized: !insecure, timeout: 12000 }, r => {
+      if ([301, 302, 303, 307, 308].includes(r.statusCode) && r.headers.location && hops < 5) { r.resume(); return resolve(rawGet(new URL(r.headers.location, url).href, insecure, hops + 1)); }
+      const chunks = []; let size = 0;
+      r.on("data", c => { size += c.length; if (size < 3_000_000) chunks.push(c); }); r.on("end", () => resolve({ html: Buffer.concat(chunks).toString("utf8"), finalUrl: url }));
+    });
+    req.on("timeout", () => req.destroy(new Error("timeout"))); req.on("error", reject); req.end();
+  });
+}
 async function getHtml(url) {
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 12000);
   try {
     const r = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8", Accept: "text/html,*/*" }, redirect: "follow", signal: ctrl.signal });
-    const text = (await r.text()).slice(0, 3_000_000);
-    return { html: text, finalUrl: r.url || url };
+    return { html: (await r.text()).slice(0, 3_000_000), finalUrl: r.url || url };
+  } catch (e) {
+    if (isCertError(e)) return rawGet(url, true);
+    throw e;
   } finally { clearTimeout(t); }
 }
 
