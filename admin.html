@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=3">
+  <link rel="stylesheet" href="admin.css?v=4">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -37,6 +37,12 @@
             <button class="btn ghost sm" id="newBtn" type="button">+ 새 글</button>
           </div>
           <ul id="list" class="items"></ul>
+
+          <div class="list-head" style="margin-top:40px">
+            <h2>갈래</h2>
+            <button class="btn ghost sm" id="newCatBtn" type="button">+ 새 갈래</button>
+          </div>
+          <ul id="catList" class="items"></ul>
 
           <div class="list-head" style="margin-top:40px">
             <h2>장면</h2>
@@ -103,6 +109,18 @@
             <p id="sceneMsg" class="msg"></p>
           </form>
 
+          <form id="catForm" class="panel" hidden>
+            <div class="form-head"><h2 id="catFormTitle">새 갈래</h2><span id="catFormId" class="n"></span></div>
+            <label>이름 <input name="label" required placeholder="예: 책, 음악, 산책길"></label>
+            <p class="help">갈래는 메인 화면의 필터와 각 글의 작은 표시에 쓰입니다. 글이 하나라도 들어 있는 갈래는 삭제할 수 없습니다.</p>
+            <div class="form-actions">
+              <button class="btn primary" type="submit">저장</button>
+              <button class="btn ghost" type="button" id="catCancelBtn">취소</button>
+              <button class="btn danger" type="button" id="catDeleteBtn" hidden>삭제</button>
+            </div>
+            <p id="catMsg" class="msg"></p>
+          </form>
+
           <div id="empty" class="panel quiet">
             <p>왼쪽에서 글을 고르거나 <b>+ 새 글</b>을 누르세요.</p>
             <p class="help">저장하면 사이트에 바로 반영됩니다.</p>
@@ -112,6 +130,6 @@
     </section>
   </main>
 
-  <script src="admin.js?v=3"></script>
+  <script src="admin.js?v=4"></script>
 </body>
 </html>

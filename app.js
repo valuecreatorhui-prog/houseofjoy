@@ -3,7 +3,7 @@ function run() {
   const S = window.SITE, CATS = window.CATEGORIES, ITEMS = window.ITEMS, SCENES = window.SCENES || [];
   const catById = Object.fromEntries(CATS.map(c => [c.id, c]));
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-  const imgOf = it => it.image || `img/placeholder-${it.category}.svg`;
+  const imgOf = it => it.image || "img/placeholder.svg";
   const hearts = (n, cls = "hearts") => {
     const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
     return r ? `<span class="${cls}" aria-label="추천지수 ${r}/5">${"♥".repeat(r)}<i>${"♥".repeat(5 - r)}</i></span>` : "";

@@ -3,7 +3,7 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   const hearts = n => { const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); return r ? `<span class="hearts">${"♥".repeat(r)}<i>${"♥".repeat(5 - r)}</i></span>` : ""; };
-  let state = null, editingId = null, editingSceneId = null, pendingImage = null; // pendingImage: { name, type, data }
+  let state = null, editingId = null, editingSceneId = null, editingCatId = null, pendingImage = null; // pendingImage: { name, type, data }
 
   /* ── API ── */
   async function api(path, opts = {}) {
@@ -34,7 +34,7 @@
   const msg = (el, text, cls = "") => { el.textContent = text; el.className = "msg " + cls; };
   const slug = p => { const d = new Date(), z = n => String(n).padStart(2, "0"); return `${p}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; };
   const catLabel = id => (state.categories.find(c => c.id === id) || {}).label || id;
-  const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#empty").hidden = w !== "empty"; };
+  const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#catForm").hidden = w !== "cat"; $("#empty").hidden = w !== "empty"; };
   function showLogin() { $("#login").hidden = false; $("#app").hidden = true; $("#logout").hidden = true; setTimeout(() => $("#password").focus(), 50); }
 
   function renderList() {
@@ -44,6 +44,11 @@
         <div class="th">${it.image ? `<img src="${esc(it.image)}" alt="">` : ""}</div>
         <div><b>${esc(it.name)}</b><small>${esc(catLabel(it.category))} · ${esc(it.price || "")}</small></div>${hearts(it.rating)}
       </li>`).join("") || `<li class="help" style="cursor:default">아직 글이 없습니다.</li>`;
+    $("#catList").innerHTML = state.categories.map(c => `
+      <li data-cat="${esc(c.id)}" class="${c.id === editingCatId ? "active" : ""}">
+        <div class="th" style="display:grid;place-items:center;color:var(--ink-3);font-size:11px">${state.items.filter(i => i.category === c.id).length}</div>
+        <div><b>${esc(c.label)}</b><small>${esc(c.id)}</small></div><span></span>
+      </li>`).join("");
     $("#sceneList").innerHTML = state.scenes.map(sc => `
       <li data-scene="${esc(sc.id)}" class="${sc.id === editingSceneId ? "active" : ""}">
         <div class="th" style="display:grid;place-items:center;color:var(--ink-3);font-size:11px">${sc.items.length}</div>
@@ -55,7 +60,7 @@
   function setPreview(src) { $("#imgprev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : "<span>사진 없음</span>"; $("#imgClear").hidden = !src; }
 
   function openItem(id) {
-    const f = $("#itemForm"); f.reset(); pendingImage = null; editingId = id; editingSceneId = null;
+    const f = $("#itemForm"); f.reset(); pendingImage = null; editingId = id; editingSceneId = null; editingCatId = null;
     const it = id ? state.items.find(i => i.id === id) : null;
     $("#formTitle").textContent = it ? "글 수정" : "새 글"; $("#formId").textContent = it ? it.id : "";
     $("#category").innerHTML = state.categories.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join("");
@@ -100,7 +105,7 @@
   }
 
   function openScene(id) {
-    const f = $("#sceneForm"); f.reset(); editingSceneId = id; editingId = null;
+    const f = $("#sceneForm"); f.reset(); editingSceneId = id; editingId = null; editingCatId = null;
     const sc = id ? state.scenes.find(s => s.id === id) : null;
     $("#sceneFormTitle").textContent = sc ? "장면 수정" : "새 장면"; $("#sceneFormId").textContent = sc ? sc.id : "";
     if (sc) { f.title.value = sc.title; f.body.value = sc.body || ""; }
@@ -122,6 +127,34 @@
     catch (err) { msg($("#sceneMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
+  /* ── 갈래 ── */
+  function openCat(id) {
+    const f = $("#catForm"); f.reset(); editingCatId = id; editingId = null; editingSceneId = null;
+    const c = id ? state.categories.find(x => x.id === id) : null;
+    $("#catFormTitle").textContent = c ? "갈래 수정" : "새 갈래"; $("#catFormId").textContent = c ? c.id : "";
+    if (c) f.label.value = c.label;
+    $("#catDeleteBtn").hidden = !c; msg($("#catMsg"), ""); showPanel("cat"); renderList();
+  }
+  async function submitCat(e) {
+    e.preventDefault(); const f = $("#catForm"); msg($("#catMsg"), "저장 중…");
+    try {
+      const label = f.label.value.trim();
+      if (state.categories.some(c => c.label === label && c.id !== editingCatId)) throw new Error("같은 이름의 갈래가 이미 있습니다.");
+      const id = editingCatId || slug("cat"); const idx = state.categories.findIndex(c => c.id === id);
+      if (idx >= 0) state.categories[idx] = { ...state.categories[idx], label }; else state.categories.push({ id, label });
+      await saveData(); editingCatId = id; $("#catFormId").textContent = id; $("#catFormTitle").textContent = "갈래 수정"; $("#catDeleteBtn").hidden = false;
+      renderList(); msg($("#catMsg"), "저장했습니다.", "ok");
+    } catch (err) { msg($("#catMsg"), "저장 실패: " + err.message, "err"); }
+  }
+  async function deleteCat() {
+    const c = state.categories.find(x => x.id === editingCatId); if (!c) return;
+    const used = state.items.filter(i => i.category === c.id).length;
+    if (used) return msg($("#catMsg"), `이 갈래에 글이 ${used}개 있어 삭제할 수 없습니다. 글의 갈래를 먼저 바꿔 주세요.`, "err");
+    if (!confirm(`"${c.label}" 갈래를 삭제할까요?`)) return;
+    try { state.categories = state.categories.filter(x => x.id !== c.id); await saveData(); editingCatId = null; renderList(); showPanel("empty"); }
+    catch (err) { msg($("#catMsg"), "삭제 실패: " + err.message, "err"); }
+  }
+
   /* ── 시작 ── */
   async function enter() { $("#login").hidden = true; $("#app").hidden = false; $("#logout").hidden = false; await loadData(); renderList(); showPanel("empty"); }
 
@@ -134,6 +167,11 @@
   $("#logout").addEventListener("click", async e => { e.preventDefault(); await api("/api/logout", { method: "POST" }).catch(() => {}); location.reload(); });
   $("#newBtn").addEventListener("click", () => openItem(null));
   $("#newSceneBtn").addEventListener("click", () => openScene(null));
+  $("#newCatBtn").addEventListener("click", () => openCat(null));
+  $("#catList").addEventListener("click", e => { const li = e.target.closest("li[data-cat]"); if (li) openCat(li.dataset.cat); });
+  $("#catForm").addEventListener("submit", submitCat);
+  $("#catCancelBtn").addEventListener("click", () => { editingCatId = null; renderList(); showPanel("empty"); });
+  $("#catDeleteBtn").addEventListener("click", deleteCat);
   $("#list").addEventListener("click", e => { const li = e.target.closest("li[data-id]"); if (li) openItem(li.dataset.id); });
   $("#sceneList").addEventListener("click", e => { const li = e.target.closest("li[data-scene]"); if (li) openScene(li.dataset.scene); });
   $("#itemForm").addEventListener("submit", submitItem);
