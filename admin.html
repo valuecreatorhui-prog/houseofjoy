@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=8">
+  <link rel="stylesheet" href="admin.css?v=9">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -157,6 +157,17 @@
     </section>
   </main>
 
-  <script src="admin.js?v=10"></script>
+  <!-- 개인 메모: 어드민에서만. 사이트에는 절대 노출되지 않습니다. -->
+  <button type="button" class="memo-fab" id="memoFab" hidden title="개인 메모 (M)">메모</button>
+  <section class="memo" id="memo" hidden aria-label="개인 메모">
+    <div class="memo-head" id="memoHead">
+      <b>개인 메모</b><span class="n" id="memoStatus">어드민에서만 보입니다</span>
+      <span class="memo-tools"><button type="button" id="memoMin" title="접기">–</button><button type="button" id="memoClose" title="닫기">×</button></span>
+    </div>
+    <textarea id="memoText" placeholder="아이디어, 가격 메모, 다음에 올릴 것, 참고 링크… 자유롭게. 쓰는 대로 저장됩니다."></textarea>
+    <div class="memo-foot"><span class="n">이 메모는 암호화되어 따로 저장되며 사이트 어디에도 나가지 않습니다.</span><span class="n" id="memoSaved"></span></div>
+    <div class="memo-resize" id="memoResize"></div>
+  </section>
+  <script src="admin.js?v=11"></script>
 </body>
 </html>

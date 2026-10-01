@@ -79,7 +79,7 @@
   const slug = p => { const d = new Date(), z = n => String(n).padStart(2, "0"); return `${p}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; };
   const catLabel = id => (state.categories.find(c => c.id === id) || {}).label || id;
   const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#catForm").hidden = w !== "cat"; $("#empty").hidden = w !== "empty"; };
-  function showLogin() { $("#login").hidden = false; $("#app").hidden = true; $("#logout").hidden = true; setTimeout(() => $("#password").focus(), 50); }
+  function showLogin() { $("#login").hidden = false; $("#app").hidden = true; $("#logout").hidden = true; $("#memoFab").hidden = true; $("#memo").hidden = true; setTimeout(() => $("#password").focus(), 50); }
   const firstImage = it => (it.images && it.images[0]) || it.image || "";
 
   function renderList() {
@@ -272,8 +272,47 @@
     catch (err) { msg($("#catMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
+  /* ── 개인 메모 (어드민 전용, 암호화 저장) ── */
+  const memo = { loaded: false, dirty: false, timer: null, saving: false, last: "" };
+  const memoSaved = t => { $("#memoSaved").textContent = t; };
+  async function memoLoad() {
+    try { const j = await api("/api/notes"); $("#memoText").value = j.text || ""; memo.last = j.text || ""; memo.loaded = true; memoSaved(j.updatedAt ? "마지막 저장 " + new Date(j.updatedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""); }
+    catch (err) { memoSaved("불러오기 실패: " + err.message); }
+  }
+  async function memoSave() {
+    if (!memo.loaded || memo.saving) return; const text = $("#memoText").value; if (text === memo.last) { memo.dirty = false; return; }
+    memo.saving = true; memoSaved("저장 중…");
+    try { await api("/api/notes", { method: "PUT", body: JSON.stringify({ text }) }); memo.last = text; memo.dirty = false; memoSaved("저장됨 " + new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })); }
+    catch (err) { memoSaved("저장 실패: " + err.message); }
+    memo.saving = false; if ($("#memoText").value !== memo.last) memoSchedule();
+  }
+  function memoSchedule() { memo.dirty = true; memoSaved("입력 중…"); clearTimeout(memo.timer); memo.timer = setTimeout(memoSave, 1200); }
+  function memoOpen(open) { const el = $("#memo"); el.hidden = !open; try { localStorage.setItem("hoj_memo_open", open ? "1" : "0"); } catch (_) {} if (open) { el.classList.remove("min"); if (!memo.loaded) memoLoad(); setTimeout(() => $("#memoText").focus(), 50); } }
+  $("#memoFab").addEventListener("click", () => memoOpen($("#memo").hidden));
+  $("#memoClose").addEventListener("click", () => { memoSave(); memoOpen(false); });
+  $("#memoMin").addEventListener("click", () => $("#memo").classList.toggle("min"));
+  $("#memoText").addEventListener("input", memoSchedule);
+  $("#memoText").addEventListener("blur", () => { clearTimeout(memo.timer); memoSave(); });
+  window.addEventListener("beforeunload", e => { if (memo.dirty) { memoSave(); e.preventDefault(); e.returnValue = ""; } });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#memo").hidden) memoOpen(false); if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "m" && !$("#app").hidden) { e.preventDefault(); memoOpen($("#memo").hidden); } });
+  (function drag() {   // 머리글을 잡고 끌기, 오른쪽 아래로 크기 조절
+    const el = $("#memo"), head = $("#memoHead"), rs = $("#memoResize"); let st = null;
+    const pos = () => { const r = el.getBoundingClientRect(); el.style.left = r.left + "px"; el.style.top = r.top + "px"; el.style.right = "auto"; el.style.bottom = "auto"; };
+    head.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; pos(); st = { x: e.clientX, y: e.clientY, l: el.offsetLeft, t: el.offsetTop }; head.setPointerCapture(e.pointerId); });
+    head.addEventListener("pointermove", e => { if (!st) return; el.style.left = Math.max(0, Math.min(window.innerWidth - 80, st.l + e.clientX - st.x)) + "px"; el.style.top = Math.max(0, Math.min(window.innerHeight - 40, st.t + e.clientY - st.y)) + "px"; });
+    head.addEventListener("pointerup", () => { st = null; });
+    let rz = null;
+    rs.addEventListener("pointerdown", e => { pos(); rz = { x: e.clientX, y: e.clientY, w: el.offsetWidth, h: el.offsetHeight }; rs.setPointerCapture(e.pointerId); e.preventDefault(); });
+    rs.addEventListener("pointermove", e => { if (!rz) return; el.style.width = Math.max(260, rz.w + e.clientX - rz.x) + "px"; el.style.height = Math.max(160, rz.h + e.clientY - rz.y) + "px"; });
+    rs.addEventListener("pointerup", () => { rz = null; });
+  })();
+
   /* ── 시작/이벤트 ── */
-  async function enter() { $("#login").hidden = true; $("#app").hidden = false; $("#logout").hidden = false; await loadData(); renderList(); showPanel("empty"); }
+  async function enter() {
+    $("#login").hidden = true; $("#app").hidden = false; $("#logout").hidden = false; $("#memoFab").hidden = false;
+    await loadData(); renderList(); showPanel("empty");
+    let open = "0"; try { open = localStorage.getItem("hoj_memo_open") || "0"; } catch (_) {} if (open === "1") memoOpen(true);
+  }
   $("#loginForm").addEventListener("submit", async e => {
     e.preventDefault(); const btn = $("#loginBtn"); btn.disabled = true; msg($("#loginMsg"), "");
     try { await api("/api/login", { method: "POST", body: JSON.stringify({ password: $("#password").value }) }); $("#password").value = ""; await enter(); }
