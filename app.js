@@ -4,6 +4,11 @@
   const catById = Object.fromEntries(CATS.map(c => [c.id, c]));
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   const imgOf = it => it.image || `img/placeholder-${it.category}.svg`;
+  const hearts = (n, cls = "hearts") => {
+    const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+    return r ? `<span class="${cls}" aria-label="추천지수 ${r}/5">${"♥".repeat(r)}<i>${"♥".repeat(5 - r)}</i></span>` : "";
+  };
+  const paras = s => String(s ?? "").split(/\n\s*\n/).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join("");
 
   /* 헤더·푸터: 모든 페이지 공통 */
   function chrome() {
@@ -35,7 +40,7 @@
         <span class="cat" data-cat="${it.category}">${esc(catById[it.category]?.label || "")}</span>
         <h3>${esc(it.name)}</h3>
         <p class="one">${esc(it.oneLine)}</p>
-        <div class="meta"><span>${esc(it.price || "")}</span><span>왜 골랐나</span></div>
+        <div class="meta"><span>${esc(it.price || "")}</span>${hearts(it.rating)}</div>
       </div></a>`;
   }
 
@@ -91,9 +96,9 @@
         <span class="cat" data-cat="${it.category}">${esc(cat.label || "")}</span>
         <h1>${esc(it.name)}</h1>
         <p class="one">${esc(it.oneLine)}</p>
+        ${it.rating ? `<div class="rating">${hearts(it.rating, "hearts lg")}<span>${Math.round(it.rating)} / 5</span></div>` : ""}
         ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
-        <section class="block"><h2>왜 골랐나</h2><p>${esc(it.reason)}</p></section>
-        ${it.experience ? `<section class="block"><h2>직접 ${esc(cat.verb || "겪어보니")}</h2><p>${esc(it.experience)}</p></section>` : ""}
+        ${it.opinion ? `<section class="opinion">${paras(it.opinion)}</section>` : ""}
         ${it.forWhom ? `<section class="block forwhom"><h2>이런 분께 권해요</h2><p>${esc(it.forWhom)}</p></section>` : ""}
         ${it.tags?.length ? `<div class="tags">${it.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join("")}</div>` : ""}
         <div class="actions">

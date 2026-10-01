@@ -74,8 +74,6 @@ p { margin: 0; }
 .card h3 { font-size: 16px; font-weight: 500; }
 .card .one { color: var(--ink-2); font-size: 13.5px; line-height: 1.6; margin-top: 2px; }
 .card .meta { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--ink-3); margin-top: 10px; }
-.card .meta span:last-child { border-bottom: 1px solid var(--line); transition: border-color .2s var(--ease); }
-.card:hover .meta span:last-child { color: var(--ink); border-color: var(--ink); }
 
 .cat { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .12em; color: var(--ink-3); text-transform: uppercase; }
 .cat::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--dot, var(--ink-3)); }
@@ -149,6 +147,17 @@ p { margin: 0; }
   .detail { grid-template-columns: 1fr; gap: 32px; }
   .detail .figure { position: static; aspect-ratio: 4 / 3; }
 }
+
+/* 의견: 제목 없이 문단만 */
+.opinion { padding: 28px 0 8px; display: grid; gap: 14px; }
+.opinion p { font-size: 15.5px; line-height: 1.85; }
+
+/* 추천지수 하트 (5개 만점) */
+.hearts { font-size: 11px; letter-spacing: 2px; color: var(--ink); white-space: nowrap; }
+.hearts i { font-style: normal; color: var(--line); }
+.hearts.lg { font-size: 15px; letter-spacing: 3px; }
+.rating { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+.rating span:last-child { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 /* 소개 */
 .page-title { font-size: clamp(28px, 3.6vw, 40px); }
