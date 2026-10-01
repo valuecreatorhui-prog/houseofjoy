@@ -6,8 +6,8 @@ function run() {
   const imagesOf = it => (it.images && it.images.length ? it.images : (it.image ? [it.image] : []));
   const imgOf = it => imagesOf(it)[0] || "img/placeholder.svg";
   const hearts = (n, cls = "hearts") => {
-    const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
-    return r ? `<span class="${cls}" aria-label="추천지수 ${r}/5">${"♥".repeat(r)}<i>${"♥".repeat(5 - r)}</i></span>` : "";
+    const r = Math.max(0, Math.min(5, Math.round((Number(n) || 0) * 2) / 2));
+    return r ? `<span class="${cls}" aria-label="추천지수 ${r}/5">${[0, 1, 2, 3, 4].map(i => `<i class="${r >= i + 1 ? "f" : r >= i + 0.5 ? "h" : ""}"></i>`).join("")}</span>` : "";
   };
   const paras = s => String(s ?? "").split(/\n\s*\n/).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join("");
 
@@ -99,7 +99,7 @@ function run() {
         <span class="cat" data-cat="${it.category}">${esc(cat.label || "")}</span>
         <h1>${esc(it.name)}</h1>
         <p class="one">${esc(it.oneLine)}</p>
-        ${it.rating ? `<div class="rating">${hearts(it.rating, "hearts lg")}<span>${Math.round(it.rating)} / 5</span></div>` : ""}
+        ${it.rating ? `<div class="rating">${hearts(it.rating, "hearts lg")}<span>${Math.round(it.rating * 2) / 2} / 5</span></div>` : ""}
         ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
         ${it.opinion ? `<section class="opinion">${paras(it.opinion)}</section>` : ""}
         ${it.forWhom ? `<section class="block forwhom"><h2>이런 분께 권해요</h2><p>${esc(it.forWhom)}</p></section>` : ""}

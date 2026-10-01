@@ -2,7 +2,10 @@
 (function () {
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-  const hearts = n => { const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); return r ? `<span class="hearts">${"♥".repeat(r)}<i>${"♥".repeat(5 - r)}</i></span>` : ""; };
+  const hearts = n => {
+    const r = Math.max(0, Math.min(5, Math.round((Number(n) || 0) * 2) / 2));
+    return r ? `<span class="hearts">${[0, 1, 2, 3, 4].map(i => `<i class="${r >= i + 1 ? "f" : r >= i + 0.5 ? "h" : ""}"></i>`).join("")}</span>` : "";
+  };
   const MAX_PHOTOS = 3;
   let state = null, editingId = null, editingSceneId = null, editingCatId = null;
   let slots = [], sel = 0, cleaned = null, preset = "studio";   // slots[i] = { url, pending:{name,type,data} } | null
@@ -122,7 +125,11 @@
     const blob = await (await fetch(s.url, { cache: "no-store" })).blob();
     return await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
   }
-  function setRating(v) { $("#rating").value = v; $("#heartpick").querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.v) <= v)); $("#ratingLabel").textContent = v ? `${v} / 5` : "선택 안 함"; }
+  function setRating(v) {
+    v = Math.max(0, Math.min(5, Math.round(v * 2) / 2)); $("#rating").value = v;
+    $("#heartpick").querySelectorAll("button").forEach(b => { const i = Number(b.dataset.v) - 1; b.classList.toggle("f", v >= i + 1); b.classList.toggle("h", v < i + 1 && v >= i + 0.5); });
+    $("#ratingLabel").textContent = v ? `${v} / 5` : "선택 안 함";
+  }
 
   /* ── 정리: 배경(물건) / 스튜디오 액자(그 외) ── */
   function showCompare(before, after, label, withPresets) {
@@ -356,7 +363,12 @@
   $("#catForm").addEventListener("submit", submitCat);
   $("#catCancelBtn").addEventListener("click", () => { editingCatId = null; renderList(); showPanel("empty"); });
   $("#catDeleteBtn").addEventListener("click", deleteCat);
-  $("#heartpick").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (!b) return; const v = Number(b.dataset.v); setRating(v === Number($("#rating").value) ? 0 : v); });
+  $("#heartpick").addEventListener("click", e => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    const rect = b.getBoundingClientRect(), half = (e.clientX - rect.left) < rect.width / 2;   // 왼쪽 절반 = 반 하트
+    const v = Number(b.dataset.v) - (half ? 0.5 : 0);
+    setRating(v === Number($("#rating").value) ? 0 : v);
+  });
   $("#slots").addEventListener("click", e => { const b = e.target.closest(".slot"); if (!b) return; selectSlot(Number(b.dataset.i)); if (!slots[sel]) $("#imageFile").click(); });
   $("#imageFile").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { putPhoto(await fileToJpeg(file)); } catch (err) { msg($("#formMsg"), err.message, "err"); } e.target.value = ""; });
   $("#imgClear").addEventListener("click", () => { slots[sel] = null; slots = [...slots.filter(Boolean), ...Array(MAX_PHOTOS).fill(null)].slice(0, MAX_PHOTOS); sel = Math.min(sel, Math.max(0, slots.filter(Boolean).length - 1)); $("#compare").hidden = true; renderSlots(); });

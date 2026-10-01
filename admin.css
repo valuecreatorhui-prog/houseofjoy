@@ -40,8 +40,11 @@ textarea { resize: vertical; line-height: 1.7; }
 @media (max-width: 600px) { .two { grid-template-columns: 1fr; } }
 
 .heartpick { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
-.heartpick button { font: inherit; font-size: 22px; line-height: 1; padding: 2px 3px; border: 0; background: none; color: var(--line); cursor: pointer; }
-.heartpick button.on { color: var(--ink); }
+.heartpick button { position: relative; font: inherit; font-size: 24px; line-height: 1; padding: 2px 3px; border: 0; background: none; color: var(--line); cursor: pointer; }
+.heartpick button::before { content: "♥"; }
+.heartpick button.f { color: var(--ink); }
+.heartpick button.h::after { content: "♥"; position: absolute; left: 3px; top: 2px; width: calc(50% - 3px); overflow: hidden; color: var(--ink); }
+.items .hearts, .picklist .hearts { font-size: 10px; }
 .heartpick .n { margin-left: 10px; }
 
 .imgrow { display: grid; grid-template-columns: 120px 1fr; gap: 16px; margin-top: 6px; align-items: start; }
