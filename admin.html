@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=11">
+  <link rel="stylesheet" href="admin.css?v=12">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -53,7 +53,7 @@
 
         <div class="form-col">
           <form id="itemForm" class="panel" hidden>
-            <div class="form-head"><h2 id="formTitle">새 글</h2><span id="formId" class="n"></span></div>
+            <div class="form-head"><h2 id="formTitle">새 글</h2><span class="n"><span id="formState" class="state" hidden></span> <span id="formId"></span></span></div>
 
             <label>갈래 <select name="category" id="category" required></select></label>
             <label>이름 <input name="name" required placeholder="예: 지름 21cm 무광 흰 접시"></label>
@@ -116,7 +116,8 @@
             <label>장면에 넣기 <div id="sceneChecks" class="checks"></div></label>
 
             <div class="form-actions">
-              <button class="btn primary" type="submit" id="saveBtn">저장</button>
+              <button class="btn ghost" type="button" id="draftBtn">임시저장</button>
+              <button class="btn primary" type="submit" id="saveBtn">게시</button>
               <button class="btn ghost" type="button" id="cancelBtn">취소</button>
               <button class="btn danger" type="button" id="deleteBtn" hidden>삭제</button>
             </div>
@@ -171,6 +172,6 @@
     <div class="memo-foot"><span class="n">이 메모는 암호화되어 따로 저장되며 사이트 어디에도 나가지 않습니다.</span><span class="n" id="memoSaved"></span></div>
     <div class="memo-resize" id="memoResize"></div>
   </section>
-  <script src="admin.js?v=13"></script>
+  <script src="admin.js?v=14"></script>
 </body>
 </html>

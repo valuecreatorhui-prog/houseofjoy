@@ -132,3 +132,7 @@ input[type="file"] { font-size: 13px; }
 .picklist small { color: var(--ink-3); font-size: 11.5px; }
 .picklist .order { margin-left: auto; font-size: 11px; color: var(--ink-3); min-width: 1.2em; text-align: right; }
 .picklist .empty { grid-column: 1 / -1; }
+
+/* 임시저장 표시 */
+.items .tag-draft, .state { display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: #f3e9c8; color: #6b5a1e; vertical-align: middle; margin-right: 6px; }
+.items li.draft b { color: var(--ink-2); }

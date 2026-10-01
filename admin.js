@@ -18,7 +18,7 @@
     if (!r.ok) throw new Error(j.error || `${r.status}`);
     return j;
   }
-  const loadData = async () => { state = await api("/api/data"); };
+  const loadData = async () => { state = await api("/api/data?all=1"); };
   const saveData = () => api("/api/data", { method: "PUT", body: JSON.stringify(state) });
 
   /* ── 이미지 변환 ── */
@@ -88,9 +88,9 @@
   function renderList() {
     $("#count").textContent = state.items.length;
     $("#list").innerHTML = state.items.map(it => `
-      <li data-id="${esc(it.id)}" class="${it.id === editingId ? "active" : ""}">
+      <li data-id="${esc(it.id)}" class="${it.id === editingId ? "active" : ""}${it.draft ? " draft" : ""}">
         <div class="th">${firstImage(it) ? `<img src="${esc(firstImage(it))}" alt="">` : ""}</div>
-        <div><b>${esc(it.name)}</b><small>${esc(catLabel(it.category))} · ${esc(it.price || "")}</small></div>${hearts(it.rating)}
+        <div><b>${it.draft ? '<span class="tag-draft">임시</span>' : ""}${esc(it.name)}</b><small>${esc(catLabel(it.category))} · ${esc(it.price || "")}</small></div>${hearts(it.rating)}
       </li>`).join("") || `<li class="help" style="cursor:default">아직 글이 없습니다.</li>`;
     $("#catList").innerHTML = state.categories.map(c => `
       <li data-cat="${esc(c.id)}" class="${c.id === editingCatId ? "active" : ""}">
@@ -117,7 +117,7 @@
   function selectSlot(i) { sel = i; $("#compare").hidden = true; cleaned = null; renderSlots(); }
   function firstEmptySlot() { const i = slots.findIndex(s => !s); return i < 0 ? sel : i; }
   function putPhoto(pending) { // 새 사진을 선택한 칸(비어 있으면) 또는 첫 빈 칸에
-    const i = slots[sel] ? firstEmptySlot() : sel; sel = i; slots[i] = { url: "", pending }; renderSlots(); autoClean();
+    formDirty = true; const i = slots[sel] ? firstEmptySlot() : sel; sel = i; slots[i] = { url: "", pending }; renderSlots(); autoClean();
   }
   async function currentImageBase64() {
     const s = slots[sel]; if (!s) return null;
@@ -181,7 +181,7 @@
   function openItem(id) {
     const f = $("#itemForm"); f.reset(); editingId = id; editingSceneId = null; editingCatId = null; cleaned = null; sel = 0;
     const it = id ? state.items.find(i => i.id === id) : null;
-    $("#formTitle").textContent = it ? "글 수정" : "새 글"; $("#formId").textContent = it ? it.id : "";
+    $("#formTitle").textContent = it ? "글 수정" : "새 글"; $("#formId").textContent = it ? it.id : ""; setFormState(it ? !!it.draft : null); formDirty = false;
     $("#category").innerHTML = state.categories.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join("");
     $("#sceneChecks").innerHTML = state.scenes.map(sc => `<label><input type="checkbox" name="scene" value="${esc(sc.id)}" ${it && sc.items.includes(it.id) ? "checked" : ""}> ${esc(sc.title)}</label>`).join("") || `<span class="help">장면이 없습니다. 왼쪽에서 먼저 만들 수 있어요.</span>`;
     const imgs = it ? (it.images && it.images.length ? it.images : (it.image ? [it.image] : [])) : [];
@@ -193,9 +193,12 @@
     $("#compare").hidden = true; $("#linkPhotos").hidden = true; $("#linkPhotos").innerHTML = ""; $("#imageFile").value = "";
     renderSlots(); $("#deleteBtn").hidden = !it; msg($("#formMsg"), ""); showPanel("item"); renderList(); window.scrollTo({ top: 0, behavior: "smooth" });
   }
-  async function submitItem(e) {
-    e.preventDefault();
-    const f = $("#itemForm"), btn = $("#saveBtn"); btn.disabled = true; msg($("#formMsg"), "저장 중…");
+  let formDirty = false;
+  function setFormState(draft) { const el = $("#formState"); el.hidden = draft === null; el.textContent = draft ? "임시저장 · 사이트에 안 보임" : "게시됨"; el.style.background = draft ? "#f3e9c8" : "#e3efe6"; el.style.color = draft ? "#6b5a1e" : "#2f5a3a"; }
+  async function submitItem(e, asDraft = false) {
+    if (e) e.preventDefault();
+    const f = $("#itemForm"), btn = $("#saveBtn"), dbtn = $("#draftBtn"); btn.disabled = dbtn.disabled = true; msg($("#formMsg"), "저장 중…");
+    if (!f.name.value.trim()) { msg($("#formMsg"), "이름은 적어 주세요.", "err"); btn.disabled = dbtn.disabled = false; return; }
     try {
       const id = editingId || slug("item");
       const images = [];
@@ -208,17 +211,17 @@
         id, category: f.category.value, name: f.name.value.trim(), oneLine: f.oneLine.value.trim(), image: images[0] || "", images,
         price: f.price.value.trim(), info: f.info.value.trim(), rating: Number($("#rating").value) || 0,
         opinion: f.opinion.value.trim(), forWhom: f.forWhom.value.trim(), link: f.link.value.trim(),
-        tags: f.tags.value.split(",").map(s => s.trim()).filter(Boolean),
+        tags: f.tags.value.split(",").map(s => s.trim()).filter(Boolean), draft: !!asDraft,
       };
       const idx = state.items.findIndex(i => i.id === id);
       if (idx >= 0) state.items[idx] = item; else state.items.unshift(item);
       const chosen = [...f.querySelectorAll('input[name="scene"]:checked')].map(c => c.value);
       state.scenes.forEach(sc => { sc.items = sc.items.filter(x => x !== id); if (chosen.includes(sc.id)) sc.items.push(id); });
       await saveData();
-      editingId = id; $("#formId").textContent = id; $("#formTitle").textContent = "글 수정"; $("#deleteBtn").hidden = false; renderSlots();
-      renderList(); msg($("#formMsg"), "저장했습니다. 사이트에 바로 반영됩니다.", "ok");
+      editingId = id; $("#formId").textContent = id; $("#formTitle").textContent = "글 수정"; $("#deleteBtn").hidden = false; renderSlots(); setFormState(!!asDraft); formDirty = false;
+      renderList(); msg($("#formMsg"), asDraft ? "임시저장했습니다. 사이트에는 보이지 않습니다. 공개하려면 \"게시\"를 누르세요." : "게시했습니다. 사이트에 바로 반영됩니다.", "ok");
     } catch (err) { msg($("#formMsg"), "저장 실패: " + err.message, "err"); }
-    btn.disabled = false;
+    btn.disabled = dbtn.disabled = false;
   }
   async function deleteItem() {
     const it = state.items.find(i => i.id === editingId); if (!it || !confirm(`"${it.name}" 글을 삭제할까요?`)) return;
@@ -321,7 +324,7 @@
   $("#memoMin").addEventListener("click", () => $("#memo").classList.toggle("min"));
   $("#memoText").addEventListener("input", memoSchedule);
   $("#memoText").addEventListener("blur", () => { clearTimeout(memo.timer); memoSave(); });
-  window.addEventListener("beforeunload", e => { if (memo.dirty) { memoSave(); e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("beforeunload", e => { if (memo.dirty) memoSave(); if (memo.dirty || (formDirty && !$("#itemForm").hidden)) { e.preventDefault(); e.returnValue = ""; } });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#memo").hidden) memoOpen(false); if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "m" && !$("#app").hidden) { e.preventDefault(); memoOpen($("#memo").hidden); } });
   (function drag() {   // 머리글을 잡고 끌기, 오른쪽 아래로 크기 조절
     const el = $("#memo"), head = $("#memoHead"), rs = $("#memoResize"); let st = null;
@@ -354,7 +357,10 @@
   $("#list").addEventListener("click", e => { const li = e.target.closest("li[data-id]"); if (li) openItem(li.dataset.id); });
   $("#sceneList").addEventListener("click", e => { const li = e.target.closest("li[data-scene]"); if (li) openScene(li.dataset.scene); });
   $("#catList").addEventListener("click", e => { const li = e.target.closest("li[data-cat]"); if (li) openCat(li.dataset.cat); });
-  $("#itemForm").addEventListener("submit", submitItem);
+  $("#itemForm").addEventListener("submit", e => submitItem(e, false));
+  $("#draftBtn").addEventListener("click", () => submitItem(null, true));
+  $("#itemForm").addEventListener("input", () => { formDirty = true; });
+  $("#cancelBtn").addEventListener("click", e => { if (formDirty && !confirm("저장하지 않은 내용이 있습니다. 그래도 닫을까요?")) { e.stopImmediatePropagation(); } }, true);
   $("#cancelBtn").addEventListener("click", () => { editingId = null; renderList(); showPanel("empty"); });
   $("#deleteBtn").addEventListener("click", deleteItem);
   $("#sceneForm").addEventListener("submit", submitScene);
