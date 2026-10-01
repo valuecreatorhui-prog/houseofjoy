@@ -19,7 +19,12 @@
     return j;
   }
   const loadData = async () => { state = await api("/api/data?all=1"); };
-  const saveData = () => api("/api/data", { method: "PUT", body: JSON.stringify(state) });
+  /* 저장은 항상 "최신 데이터를 받아서 → 이 변경만 얹어서 → 저장" 순서로. 다른 탭이나 다른 기기에서 저장한 내용을 덮어쓰지 않습니다. */
+  async function commit(apply) {
+    const latest = await api("/api/data?all=1");
+    apply(latest); state = latest;
+    await api("/api/data", { method: "PUT", body: JSON.stringify(state) });
+  }
 
   /* ── 이미지 변환 ── */
   function fileToJpeg(file) {
@@ -213,11 +218,12 @@
         opinion: f.opinion.value.trim(), forWhom: f.forWhom.value.trim(), link: f.link.value.trim(),
         tags: f.tags.value.split(",").map(s => s.trim()).filter(Boolean), draft: !!asDraft,
       };
-      const idx = state.items.findIndex(i => i.id === id);
-      if (idx >= 0) state.items[idx] = item; else state.items.unshift(item);
       const chosen = [...f.querySelectorAll('input[name="scene"]:checked')].map(c => c.value);
-      state.scenes.forEach(sc => { sc.items = sc.items.filter(x => x !== id); if (chosen.includes(sc.id)) sc.items.push(id); });
-      await saveData();
+      await commit(d => {
+        const idx = d.items.findIndex(i => i.id === id);
+        if (idx >= 0) d.items[idx] = item; else d.items.unshift(item);
+        d.scenes.forEach(sc => { const had = sc.items.includes(id); if (chosen.includes(sc.id) && !had) sc.items.push(id); if (!chosen.includes(sc.id) && had) sc.items = sc.items.filter(x => x !== id); });
+      });
       editingId = id; $("#formId").textContent = id; $("#formTitle").textContent = "글 수정"; $("#deleteBtn").hidden = false; renderSlots(); setFormState(!!asDraft); formDirty = false;
       renderList(); msg($("#formMsg"), asDraft ? "임시저장했습니다. 사이트에는 보이지 않습니다. 공개하려면 \"게시\"를 누르세요." : "게시했습니다. 사이트에 바로 반영됩니다.", "ok");
     } catch (err) { msg($("#formMsg"), "저장 실패: " + err.message, "err"); }
@@ -226,7 +232,7 @@
   async function deleteItem() {
     const it = state.items.find(i => i.id === editingId); if (!it || !confirm(`"${it.name}" 글을 삭제할까요?`)) return;
     msg($("#formMsg"), "삭제 중…");
-    try { state.items = state.items.filter(i => i.id !== it.id); state.scenes.forEach(sc => sc.items = sc.items.filter(x => x !== it.id)); await saveData(); editingId = null; renderList(); showPanel("empty"); }
+    try { await commit(d => { d.items = d.items.filter(i => i.id !== it.id); d.scenes.forEach(sc => sc.items = sc.items.filter(x => x !== it.id)); }); editingId = null; renderList(); showPanel("empty"); }
     catch (err) { msg($("#formMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
@@ -262,16 +268,15 @@
   async function submitScene(e) {
     e.preventDefault(); const f = $("#sceneForm"); msg($("#sceneMsg"), "저장 중…");
     try {
-      const id = editingSceneId || slug("scene"); const idx = state.scenes.findIndex(s => s.id === id);
+      const id = editingSceneId || slug("scene");
       const sc = { id, title: f.title.value.trim(), body: f.body.value.trim(), items: scenePickOrder.slice() };
-      if (idx >= 0) state.scenes[idx] = sc; else state.scenes.push(sc);
-      await saveData(); editingSceneId = id; $("#sceneFormId").textContent = id; $("#sceneFormTitle").textContent = "장면 수정"; $("#sceneDeleteBtn").hidden = false;
+      await commit(d => { const idx = d.scenes.findIndex(s => s.id === id); if (idx >= 0) d.scenes[idx] = sc; else d.scenes.push(sc); }); editingSceneId = id; $("#sceneFormId").textContent = id; $("#sceneFormTitle").textContent = "장면 수정"; $("#sceneDeleteBtn").hidden = false;
       renderList(); msg($("#sceneMsg"), "저장했습니다.", "ok");
     } catch (err) { msg($("#sceneMsg"), "저장 실패: " + err.message, "err"); }
   }
   async function deleteScene() {
     const sc = state.scenes.find(s => s.id === editingSceneId); if (!sc || !confirm(`"${sc.title}" 장면을 삭제할까요? (글은 남습니다)`)) return;
-    try { state.scenes = state.scenes.filter(s => s.id !== sc.id); await saveData(); editingSceneId = null; renderList(); showPanel("empty"); }
+    try { await commit(d => { d.scenes = d.scenes.filter(s => s.id !== sc.id); }); editingSceneId = null; renderList(); showPanel("empty"); }
     catch (err) { msg($("#sceneMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
@@ -288,9 +293,8 @@
     try {
       const label = f.label.value.trim();
       if (state.categories.some(c => c.label === label && c.id !== editingCatId)) throw new Error("같은 이름의 갈래가 이미 있습니다.");
-      const id = editingCatId || slug("cat"); const idx = state.categories.findIndex(c => c.id === id);
-      if (idx >= 0) state.categories[idx] = { ...state.categories[idx], label }; else state.categories.push({ id, label });
-      await saveData(); editingCatId = id; $("#catFormId").textContent = id; $("#catFormTitle").textContent = "갈래 수정"; $("#catDeleteBtn").hidden = false;
+      const id = editingCatId || slug("cat");
+      await commit(d => { const idx = d.categories.findIndex(c => c.id === id); if (idx >= 0) d.categories[idx] = { ...d.categories[idx], label }; else d.categories.push({ id, label }); }); editingCatId = id; $("#catFormId").textContent = id; $("#catFormTitle").textContent = "갈래 수정"; $("#catDeleteBtn").hidden = false;
       renderList(); msg($("#catMsg"), "저장했습니다.", "ok");
     } catch (err) { msg($("#catMsg"), "저장 실패: " + err.message, "err"); }
   }
@@ -299,7 +303,7 @@
     const used = state.items.filter(i => i.category === c.id).length;
     if (used) return msg($("#catMsg"), `이 갈래에 글이 ${used}개 있어 삭제할 수 없습니다. 글의 갈래를 먼저 바꿔 주세요.`, "err");
     if (!confirm(`"${c.label}" 갈래를 삭제할까요?`)) return;
-    try { state.categories = state.categories.filter(x => x.id !== c.id); await saveData(); editingCatId = null; renderList(); showPanel("empty"); }
+    try { await commit(d => { d.categories = d.categories.filter(x => x.id !== c.id); }); editingCatId = null; renderList(); showPanel("empty"); }
     catch (err) { msg($("#catMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
