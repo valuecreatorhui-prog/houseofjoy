@@ -59,3 +59,10 @@ input[type="file"] { font-size: 13px; }
 .btn[disabled] { opacity: .5; pointer-events: none; }
 
 [hidden] { display: none !important; }
+
+/* 로그인 화면 */
+.login { display: grid; place-items: center; min-height: 60vh; }
+.login-box { width: min(380px, 100%); display: grid; gap: 12px; text-align: center; }
+.login-box h1 { font-size: 22px; margin: 0; }
+.login-box input { margin: 8px 0 0; text-align: center; }
+.login-box .btn { width: 100%; text-align: center; }

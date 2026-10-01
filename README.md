@@ -15,38 +15,26 @@
 | `about.html` | 소개와 기준 |
 | `styles.css`, `app.js` | 디자인과 화면 그리는 코드 (내용을 바꿀 땐 손댈 필요 없음) |
 
-## 관리자 페이지로 추가·수정하기 (권장)
+## 관리자 페이지에서 글 쓰기 (권장)
 
-사이트 주소 뒤에 `admin.html`을 붙여 엽니다.
-`https://valuecreatorhui-prog.github.io/houseofjoy/admin.html`
+`https://houseofjoy.vercel.app/admin` 에서 비밀번호로 로그인합니다.
 
-- 처음 한 번 GitHub 토큰을 넣습니다. 만드는 방법은 그 화면에 적혀 있습니다. (Fine-grained token, houseofjoy 저장소, Contents: Read and write)
-- 항목 추가·수정·삭제, 사진 업로드, 추천지수(하트), 장면 묶기를 모두 화면에서 할 수 있습니다.
-- 저장하면 GitHub에 바로 기록되고, 사이트에는 1~2분 안에 반영됩니다.
-- 토큰은 그 브라우저에만 저장됩니다. 다른 기기에서는 다시 넣어야 하고, "토큰 지우기"로 지울 수 있습니다.
+- 글(항목) 추가·수정·삭제, 사진 업로드, 추천지수(하트), 장면 묶기를 모두 화면에서 합니다.
+- 저장하면 사이트에 바로 반영됩니다.
+- 데이터와 사진은 Vercel Blob 저장소에 보관됩니다. 저장소에 데이터가 없으면 `data/seed.json`이 초기값으로 쓰입니다.
+- 비밀번호는 Vercel 환경변수 `ADMIN_PASSWORD`에 있습니다. 바꾸려면 `vercel env rm ADMIN_PASSWORD production` 후 `vercel env add ADMIN_PASSWORD production` 으로 다시 넣고 재배포합니다.
 
-## 파일로 직접 추가하기
+## 구조
 
-1. 사진을 `img/` 폴더에 넣습니다. (예: `img/plate-21.jpg`, 가로 4:3 권장)
-2. `data/items.js`의 `ITEMS` 배열에 항목 하나를 복사해 붙이고 내용을 바꿉니다.
-   - `id`: 영문·숫자·하이픈만, 겹치지 않게
-   - `category`: `thing`(물건) / `food`(음식) / `place`(장소) 중 하나
-   - `image`: `"img/파일명.jpg"` — 비우면 기본 이미지
-   - `opinion`: 내 의견 (자유롭게. 문단을 나누려면 `\n\n`)
-   - `rating`: 추천지수 1~5 (하트 5개 만점)
-   - `forWhom`: 이런 분께 권해요
-   - `link`: 구매처 또는 지도 링크 (없으면 비움)
-3. 장면으로 묶고 싶으면 `SCENES`의 `items`에 그 `id`를 넣습니다.
-4. 저장 후 GitHub에 올리면 1~2분 안에 사이트에 반영됩니다.
-
-## 로컬에서 미리 보기
-
-`index.html`을 브라우저로 그냥 열어도 됩니다. 또는 터미널에서:
-
-```bash
-npx serve .
-```
+- 사이트 화면: `index.html`, `item.html`, `about.html` + `app.js`, `styles.css`
+- 관리자: `admin.html`, `admin.js`, `admin.css`
+- 서버(API, Vercel Functions): `api/login.js`(로그인), `api/logout.js`, `api/me.js`, `api/data.js`(데이터 읽기/쓰기), `api/upload.js`(사진 업로드)
+- 브랜드·소개·기준·연락처: `data/site.js`
 
 ## 배포
 
-GitHub Pages (main 브랜치 루트) 로 배포됩니다. 파일을 고쳐 `git push` 하면 자동 반영됩니다.
+Vercel 프로젝트 `houseofjoy`. 폴더에서 `vercel deploy --prod` 로 배포합니다.
+
+## (참고) 로컬 미리보기
+
+`index.html`을 브라우저로 열면 서버 없이 `data/items.js`의 예시 데이터로 화면을 볼 수 있습니다. 실제 데이터는 서버에 있으므로 `vercel dev`로 띄우면 실제 데이터로 보입니다.

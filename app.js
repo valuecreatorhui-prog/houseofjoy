@@ -1,5 +1,5 @@
 /* 공용 렌더링 스크립트 — data/site.js, data/items.js 를 읽어 화면을 그립니다. */
-(function () {
+function run() {
   const S = window.SITE, CATS = window.CATEGORIES, ITEMS = window.ITEMS, SCENES = window.SCENES || [];
   const catById = Object.fromEntries(CATS.map(c => [c.id, c]));
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
@@ -130,4 +130,13 @@
 
   chrome();
   ({ home, item, about }[document.body.dataset.page] || (() => {}))();
+}
+
+/* 서버(/api/data)에서 최신 데이터를 받아 그립니다. 서버가 없을 때(로컬 미리보기)는 data/items.js 를 그대로 씁니다. */
+(async function boot() {
+  try {
+    const r = await fetch("/api/data", { cache: "no-store" });
+    if (r.ok) { const d = await r.json(); window.CATEGORIES = d.categories; window.SCENES = d.scenes; window.ITEMS = d.items; }
+  } catch (_) {}
+  run();
 })();

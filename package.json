@@ -1,0 +1,10 @@
+{
+  "name": "houseofjoy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "House of Joy — 작은 생활 편집숍",
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
+  },
+  "engines": { "node": ">=22" }
+}
