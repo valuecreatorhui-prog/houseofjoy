@@ -89,7 +89,6 @@
     const cat = catById[it.category] || {};
     document.title = `${it.name} — ${S.name}`;
     const facts = [["가격", it.price], ["정보", it.info]].filter(([, v]) => v);
-    const contact = S.contact?.kakao || S.contact?.instagram || (S.contact?.email && `mailto:${S.contact.email}`);
     root.innerHTML = `
       <div class="figure"><img src="${esc(imgOf(it))}" alt="${esc(it.name)}"></div>
       <div>
@@ -102,8 +101,7 @@
         ${it.forWhom ? `<section class="block forwhom"><h2>이런 분께 권해요</h2><p>${esc(it.forWhom)}</p></section>` : ""}
         ${it.tags?.length ? `<div class="tags">${it.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join("")}</div>` : ""}
         <div class="actions">
-          ${it.link ? `<a class="btn primary" href="${esc(it.link)}" target="_blank" rel="noopener">${it.category === "place" ? "지도에서 보기" : "구매처 보기"}</a>` : ""}
-          ${contact ? `<a class="btn ${it.link ? "ghost" : "primary"}" href="${esc(contact)}" target="_blank" rel="noopener">${esc(S.orderLabel)}</a>` : ""}
+          ${it.link ? `<a class="btn ghost" href="${esc(it.link)}" target="_blank" rel="noopener">${it.category === "place" ? "지도에서 보기" : "구매처 보기"}</a>` : ""}
         </div>
       </div>`;
 

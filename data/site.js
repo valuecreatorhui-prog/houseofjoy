@@ -34,6 +34,5 @@ window.SITE = {
     kakao: "",                                   // 예: https://pf.kakao.com/_xxxxx
     email: "valuecreator.hui@gmail.com",
   },
-  orderLabel: "문의 / 주문하기",
   footerNote: "소개하는 모든 것은 직접 구입하고 경험한 것입니다. 광고와 협찬은 받지 않습니다.",
 };
