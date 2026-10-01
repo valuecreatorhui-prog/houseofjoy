@@ -59,7 +59,7 @@
   function setRating(v) { $("#rating").value = v; $("#heartpick").querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.v) <= v)); $("#ratingLabel").textContent = v ? `${v} / 5` : "선택 안 함"; }
   function setPreview(src) {
     $("#imgprev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : "<span>사진 없음</span>";
-    $("#imgClear").hidden = !src; $("#cleanBtn").hidden = !src; $("#cleanHelp").hidden = !src; $("#compare").hidden = true;
+    $("#imgClear").hidden = !src; $("#cleanBtn").hidden = !src; $("#toneBtn").hidden = !src; $("#cleanHelp").hidden = !src; $("#compare").hidden = true;
   }
   /* 현재 사진(새로 고른 파일 또는 이미 올라간 URL)을 base64로 */
   async function currentImageBase64() {
@@ -76,7 +76,7 @@
       const r = await fetch("/api/cutout", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data, preset }) });
       const j = await r.json().catch(() => ({})); if (r.status === 401) { showLogin(); return; } if (!r.ok) throw new Error(j.error || r.status);
       cleaned = { name: ((pendingImage && pendingImage.name) || "photo.jpg").replace(/\.[^.]+$/, "") + "-clean.jpg", type: "image/jpeg", data: j.data };
-      $("#cmpBefore").src = "data:image/jpeg;base64," + data; $("#cmpAfter").src = "data:image/jpeg;base64," + j.data; $("#compare").hidden = false;
+      $("#cmpLabel").textContent = "배경 정리"; $("#presets").hidden = false; $("#cmpBefore").src = "data:image/jpeg;base64," + data; $("#cmpAfter").src = "data:image/jpeg;base64," + j.data; $("#compare").hidden = false;
     } catch (err) { msg($("#formMsg"), "배경 정리 실패: " + err.message, "err"); }
     btn.disabled = false; btn.textContent = "배경 정리";
   }
@@ -149,6 +149,50 @@
     catch (err) { msg($("#sceneMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
+  /* ── 톤 정리(브라우저에서, 서버·비용 없음): 4:5 가운데 자르기, 색온도 중립화, 채도·대비 완화 ── */
+  function toneCleanBase64(base64) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const W = 1200, H = 1500, s = Math.max(W / img.width, H / img.height);
+        const sw = W / s, sh = H / s, sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+        const c = document.createElement("canvas"); c.width = W; c.height = H; const ctx = c.getContext("2d");
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+        const im = ctx.getImageData(0, 0, W, H), d = im.data, n = W * H;
+        let r = 0, g = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+        r /= n; g /= n; b /= n; const gray = (r + g + b) / 3, k = 0.6; // 그레이월드 화이트밸런스, 60%만 적용
+        const fr = 1 + k * (gray / r - 1), fg = 1 + k * (gray / g - 1), fb = 1 + k * (gray / b - 1);
+        const lum = new Float32Array(n); let li = 0;
+        for (let i = 0; i < d.length; i += 4) { const R = d[i] * fr, G = d[i + 1] * fg, B = d[i + 2] * fb; lum[li++] = 0.299 * R + 0.587 * G + 0.114 * B; d[i] = R; d[i + 1] = G; d[i + 2] = B; }
+        const sorted = Float32Array.from(lum).sort(); const lo = sorted[Math.floor(n * 0.005)], hi = sorted[Math.floor(n * 0.995)];
+        const stretch = v => ((v - lo) / Math.max(hi - lo, 1)) * 235 + 12;  // 완전한 검정·흰색은 피해 부드럽게
+        const sat = 0.86;
+        for (let i = 0; i < d.length; i += 4) {
+          let R = stretch(d[i]), G = stretch(d[i + 1]), B = stretch(d[i + 2]);
+          const L = 0.299 * R + 0.587 * G + 0.114 * B;
+          R = L + (R - L) * sat; G = L + (G - L) * sat; B = L + (B - L) * sat;
+          d[i] = Math.max(0, Math.min(255, R)); d[i + 1] = Math.max(0, Math.min(255, G)); d[i + 2] = Math.max(0, Math.min(255, B));
+        }
+        ctx.putImageData(im, 0, 0);
+        resolve(c.toDataURL("image/jpeg", 0.88).split(",")[1]);
+      };
+      img.onerror = () => reject(new Error("이미지를 읽을 수 없습니다.")); img.src = "data:image/jpeg;base64," + base64;
+    });
+  }
+  async function toneClean() {
+    const btn = $("#toneBtn"); btn.disabled = true; btn.textContent = "정리 중…"; msg($("#formMsg"), "");
+    try {
+      const data = await currentImageBase64(); if (!data) throw new Error("사진이 없습니다.");
+      const out = await toneCleanBase64(data);
+      cleaned = { name: ((pendingImage && pendingImage.name) || "photo.jpg").replace(/\.[^.]+$/, "") + "-tone.jpg", type: "image/jpeg", data: out };
+      $("#cmpLabel").textContent = "톤 정리"; $("#presets").hidden = true;
+      $("#cmpBefore").src = "data:image/jpeg;base64," + data; $("#cmpAfter").src = "data:image/jpeg;base64," + out; $("#compare").hidden = false;
+    } catch (err) { msg($("#formMsg"), "톤 정리 실패: " + err.message, "err"); }
+    btn.disabled = false; btn.textContent = "톤 정리";
+  }
+  /* 사진을 고르면 갈래에 따라 자동으로 정리본 제안 */
+  function autoClean() { ($("#category").value === "thing" ? cleanBackground : toneClean)(); }
+
   /* ── 갈래 ── */
   function openCat(id) {
     const f = $("#catForm"); f.reset(); editingCatId = id; editingId = null; editingSceneId = null;
@@ -203,7 +247,8 @@
   $("#sceneCancelBtn").addEventListener("click", () => { editingSceneId = null; renderList(); showPanel("empty"); });
   $("#sceneDeleteBtn").addEventListener("click", deleteScene);
   $("#heartpick").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (!b) return; const v = Number(b.dataset.v); setRating(v === Number($("#rating").value) ? 0 : v); });
-  $("#imageFile").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { pendingImage = await fileToJpeg(file); setPreview("data:image/jpeg;base64," + pendingImage.data); } catch (err) { msg($("#formMsg"), err.message, "err"); } });
+  $("#imageFile").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { pendingImage = await fileToJpeg(file); setPreview("data:image/jpeg;base64," + pendingImage.data); autoClean(); } catch (err) { msg($("#formMsg"), err.message, "err"); } });
+  $("#toneBtn").addEventListener("click", toneClean);
   $("#imgClear").addEventListener("click", () => { pendingImage = null; $("#image").value = ""; $("#imageFile").value = ""; setPreview(""); });
   $("#cleanBtn").addEventListener("click", cleanBackground);
   $("#presets").addEventListener("click", e => { const b = e.target.closest("button[data-preset]"); if (!b) return; preset = b.dataset.preset; $("#presets").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); cleanBackground(); });

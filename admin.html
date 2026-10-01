@@ -83,14 +83,15 @@
                   <p class="help">세로가 조금 긴 4:5 비율이 가장 예쁘게 나옵니다. 올릴 때 자동으로 줄여서 저장합니다.</p>
                   <div class="imgbtns">
                     <button type="button" class="btn ghost sm" id="cleanBtn" hidden>배경 정리</button>
+                    <button type="button" class="btn ghost sm" id="toneBtn" hidden>톤 정리</button>
                     <button type="button" class="btn ghost sm" id="imgClear" hidden>사진 빼기</button>
                   </div>
-                  <p class="help" id="cleanHelp" hidden>물건 사진에 권합니다. 배경과 로고를 걷어내고 사이트 톤의 배경 위에 올립니다. 10~30초 걸립니다.</p>
+                  <p class="help" id="cleanHelp" hidden>사진을 올리면 갈래에 맞춰 자동으로 정리본을 보여줍니다. 물건은 배경 정리(배경·로고 제거 후 스튜디오 배경), 음식·장소는 톤 정리(4:5 비율, 색감 통일). 원본을 쓰고 싶으면 "원본 유지"를 누르세요.</p>
                 </div>
               </div>
               <div class="compare" id="compare" hidden>
                 <div><small>원본</small><div class="cmpimg"><img id="cmpBefore" alt=""></div></div>
-                <div><small>배경 정리</small><div class="cmpimg"><img id="cmpAfter" alt=""></div></div>
+                <div><small id="cmpLabel">배경 정리</small><div class="cmpimg"><img id="cmpAfter" alt=""></div></div>
                 <div class="presets" id="presets">
                   <small>배경</small>
                   <button type="button" data-preset="studio" class="on" style="--c:#eaeaea">스튜디오</button>
@@ -156,6 +157,6 @@
     </section>
   </main>
 
-  <script src="admin.js?v=7"></script>
+  <script src="admin.js?v=8"></script>
 </body>
 </html>
