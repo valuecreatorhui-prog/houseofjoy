@@ -226,13 +226,34 @@
     const sc = id ? state.scenes.find(s => s.id === id) : null;
     $("#sceneFormTitle").textContent = sc ? "장면 수정" : "새 장면"; $("#sceneFormId").textContent = sc ? sc.id : "";
     if (sc) { f.title.value = sc.title; f.body.value = sc.body || ""; }
+    renderScenePicks(sc ? sc.items : []);
     $("#sceneDeleteBtn").hidden = !sc; msg($("#sceneMsg"), ""); showPanel("scene"); renderList();
   }
+  let scenePickOrder = [];   // 체크한 순서를 기억해 그 순서대로 저장
+  function renderScenePicks(chosen) {
+    scenePickOrder = chosen.filter(id => state.items.some(i => i.id === id));
+    const box = $("#sceneItems");
+    box.innerHTML = state.items.length ? state.items.map(it => `
+      <label><input type="checkbox" name="sceneItem" value="${esc(it.id)}" ${scenePickOrder.includes(it.id) ? "checked" : ""}>
+        <span class="th">${firstImage(it) ? `<img src="${esc(firstImage(it))}" alt="">` : ""}</span>
+        <span><b>${esc(it.name)}</b><small>${esc(catLabel(it.category))}${it.price ? " · " + esc(it.price) : ""}</small></span>
+        <span class="order"></span></label>`).join("") : `<span class="help empty">아직 글이 없습니다. 글을 먼저 쓰고 장면에 넣을 수 있어요.</span>`;
+    updateSceneOrder();
+  }
+  function updateSceneOrder() {
+    $("#sceneItems").querySelectorAll("label").forEach(l => { const id = l.querySelector("input").value, k = scenePickOrder.indexOf(id); l.querySelector(".order").textContent = k >= 0 ? k + 1 : ""; });
+    $("#sceneItemsCount").textContent = scenePickOrder.length ? `${scenePickOrder.length}개 선택` : "";
+  }
+  $("#sceneItems").addEventListener("change", e => {
+    const cb = e.target; if (cb.name !== "sceneItem") return;
+    scenePickOrder = cb.checked ? [...scenePickOrder.filter(x => x !== cb.value), cb.value] : scenePickOrder.filter(x => x !== cb.value);
+    updateSceneOrder();
+  });
   async function submitScene(e) {
     e.preventDefault(); const f = $("#sceneForm"); msg($("#sceneMsg"), "저장 중…");
     try {
       const id = editingSceneId || slug("scene"); const idx = state.scenes.findIndex(s => s.id === id);
-      const sc = { id, title: f.title.value.trim(), body: f.body.value.trim(), items: idx >= 0 ? state.scenes[idx].items : [] };
+      const sc = { id, title: f.title.value.trim(), body: f.body.value.trim(), items: scenePickOrder.slice() };
       if (idx >= 0) state.scenes[idx] = sc; else state.scenes.push(sc);
       await saveData(); editingSceneId = id; $("#sceneFormId").textContent = id; $("#sceneFormTitle").textContent = "장면 수정"; $("#sceneDeleteBtn").hidden = false;
       renderList(); msg($("#sceneMsg"), "저장했습니다.", "ok");

@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=9">
+  <link rel="stylesheet" href="admin.css?v=10">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -127,7 +127,10 @@
             <div class="form-head"><h2 id="sceneFormTitle">새 장면</h2><span id="sceneFormId" class="n"></span></div>
             <label>제목 <input name="title" required placeholder="예: 좋아하는 빵을 먹는 아침"></label>
             <label>설명 <textarea name="body" rows="3"></textarea></label>
-            <p class="help">장면에 들어갈 글은 각 글의 편집 화면에서 "장면에 넣기"로 고릅니다.</p>
+            <label>이 장면에 넣을 글 <span class="n" id="sceneItemsCount"></span>
+              <div id="sceneItems" class="picklist"></div>
+            </label>
+            <p class="help">여기서 고른 순서대로 사이트에 보입니다. 글 편집 화면의 "장면에 넣기"에서도 같은 결과로 바뀝니다.</p>
             <div class="form-actions">
               <button class="btn primary" type="submit">저장</button>
               <button class="btn ghost" type="button" id="sceneCancelBtn">취소</button>
@@ -168,6 +171,6 @@
     <div class="memo-foot"><span class="n">이 메모는 암호화되어 따로 저장되며 사이트 어디에도 나가지 않습니다.</span><span class="n" id="memoSaved"></span></div>
     <div class="memo-resize" id="memoResize"></div>
   </section>
-  <script src="admin.js?v=11"></script>
+  <script src="admin.js?v=12"></script>
 </body>
 </html>
