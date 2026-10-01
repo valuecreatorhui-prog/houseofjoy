@@ -105,7 +105,7 @@ function run() {
         ${it.forWhom ? `<section class="block forwhom"><h2>이런 분께 권해요</h2><p>${esc(it.forWhom)}</p></section>` : ""}
         ${it.tags?.length ? `<div class="tags">${it.tags.map(t => `<span class="tag">#${esc(t)}</span>`).join("")}</div>` : ""}
         <div class="actions">
-          ${it.link ? `<a class="btn ghost" href="${esc(it.link)}" target="_blank" rel="noopener">${it.category === "place" ? "지도에서 보기" : "구매처 보기"}</a>` : ""}
+          ${it.link ? `<a class="btn ghost" href="${esc(it.link)}" target="_blank" rel="noopener">${/map\.naver|naver\.me|place\.naver|map\.kakao|kko\.to|google\.[a-z.]+\/maps|goo\.gl\/maps|maps\.app/i.test(it.link) || it.category === "place" ? "지도에서 보기" : "자세히 보기"}</a>` : ""}
         </div>
       </div>`;
 
