@@ -57,10 +57,32 @@
   }
 
   function setRating(v) { $("#rating").value = v; $("#heartpick").querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.v) <= v)); $("#ratingLabel").textContent = v ? `${v} / 5` : "선택 안 함"; }
-  function setPreview(src) { $("#imgprev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : "<span>사진 없음</span>"; $("#imgClear").hidden = !src; }
+  function setPreview(src) {
+    $("#imgprev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : "<span>사진 없음</span>";
+    $("#imgClear").hidden = !src; $("#cleanBtn").hidden = !src; $("#cleanHelp").hidden = !src; $("#compare").hidden = true;
+  }
+  /* 현재 사진(새로 고른 파일 또는 이미 올라간 URL)을 base64로 */
+  async function currentImageBase64() {
+    if (pendingImage) return pendingImage.data;
+    const url = $("#image").value; if (!url) return null;
+    const blob = await (await fetch(url, { cache: "no-store" })).blob();
+    return await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
+  }
+  let cleaned = null;
+  async function cleanBackground() {
+    const btn = $("#cleanBtn"); btn.disabled = true; btn.textContent = "정리 중…"; msg($("#formMsg"), "");
+    try {
+      const data = await currentImageBase64(); if (!data) throw new Error("사진이 없습니다.");
+      const r = await fetch("/api/cutout", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data }) });
+      const j = await r.json().catch(() => ({})); if (r.status === 401) { showLogin(); return; } if (!r.ok) throw new Error(j.error || r.status);
+      cleaned = { name: ((pendingImage && pendingImage.name) || "photo.jpg").replace(/\.[^.]+$/, "") + "-clean.jpg", type: "image/jpeg", data: j.data };
+      $("#cmpBefore").src = "data:image/jpeg;base64," + data; $("#cmpAfter").src = "data:image/jpeg;base64," + j.data; $("#compare").hidden = false;
+    } catch (err) { msg($("#formMsg"), "배경 정리 실패: " + err.message, "err"); }
+    btn.disabled = false; btn.textContent = "배경 정리";
+  }
 
   function openItem(id) {
-    const f = $("#itemForm"); f.reset(); pendingImage = null; editingId = id; editingSceneId = null; editingCatId = null;
+    const f = $("#itemForm"); f.reset(); pendingImage = null; cleaned = null; editingId = id; editingSceneId = null; editingCatId = null;
     const it = id ? state.items.find(i => i.id === id) : null;
     $("#formTitle").textContent = it ? "글 수정" : "새 글"; $("#formId").textContent = it ? it.id : "";
     $("#category").innerHTML = state.categories.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join("");
@@ -183,6 +205,9 @@
   $("#heartpick").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (!b) return; const v = Number(b.dataset.v); setRating(v === Number($("#rating").value) ? 0 : v); });
   $("#imageFile").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { pendingImage = await fileToJpeg(file); setPreview("data:image/jpeg;base64," + pendingImage.data); } catch (err) { msg($("#formMsg"), err.message, "err"); } });
   $("#imgClear").addEventListener("click", () => { pendingImage = null; $("#image").value = ""; $("#imageFile").value = ""; setPreview(""); });
+  $("#cleanBtn").addEventListener("click", cleanBackground);
+  $("#cmpUse").addEventListener("click", () => { if (!cleaned) return; pendingImage = cleaned; $("#image").value = ""; $("#imgprev").innerHTML = `<img src="data:image/jpeg;base64,${cleaned.data}" alt="">`; $("#compare").hidden = true; msg($("#formMsg"), "정리한 사진으로 바꿨습니다. 저장을 누르면 반영됩니다.", "ok"); });
+  $("#cmpKeep").addEventListener("click", () => { cleaned = null; $("#compare").hidden = true; });
 
   fetch("/api/me", { credentials: "same-origin", cache: "no-store" }).then(r => r.json()).then(j => j.ok ? enter() : showLogin()).catch(showLogin);
 })();

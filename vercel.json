@@ -1,6 +1,19 @@
 {
   "cleanUrls": true,
   "headers": [
-    { "source": "/api/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store" }] }
-  ]
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
+  ],
+  "functions": {
+    "api/cutout.py": {
+      "maxDuration": 120
+    }
+  }
 }

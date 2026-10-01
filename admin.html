@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=4">
+  <link rel="stylesheet" href="admin.css?v=5">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -81,7 +81,22 @@
                 <div>
                   <input type="file" id="imageFile" accept="image/*">
                   <p class="help">세로가 조금 긴 4:5 비율이 가장 예쁘게 나옵니다. 올릴 때 자동으로 줄여서 저장합니다.</p>
-                  <button type="button" class="btn ghost sm" id="imgClear" hidden>사진 빼기</button>
+                  <div class="imgbtns">
+                    <button type="button" class="btn ghost sm" id="cleanBtn" hidden>배경 정리</button>
+                    <button type="button" class="btn ghost sm" id="imgClear" hidden>사진 빼기</button>
+                  </div>
+                  <p class="help" id="cleanHelp" hidden>물건 사진에 권합니다. 배경과 로고를 걷어내고 사이트 톤의 배경 위에 올립니다. 10~30초 걸립니다.</p>
+                </div>
+              </div>
+              <div class="compare" id="compare" hidden>
+                <div><small>원본</small><div class="cmpimg"><img id="cmpBefore" alt=""></div></div>
+                <div><small>배경 정리</small><div class="cmpimg"><img id="cmpAfter" alt=""></div></div>
+                <div class="cmpbtns">
+                  <button type="button" class="btn primary sm" id="cmpUse">이걸로 쓰기</button>
+                  <button type="button" class="btn ghost sm" id="cmpKeep">원본 유지</button>
+                </div>
+              </div>
+              <div hidden>
                 </div>
               </div>
               <input type="hidden" name="image" id="image">
@@ -130,6 +145,6 @@
     </section>
   </main>
 
-  <script src="admin.js?v=4"></script>
+  <script src="admin.js?v=5"></script>
 </body>
 </html>
