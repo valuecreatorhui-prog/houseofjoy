@@ -15,7 +15,17 @@
 | `about.html` | 소개와 기준 |
 | `styles.css`, `app.js` | 디자인과 화면 그리는 코드 (내용을 바꿀 땐 손댈 필요 없음) |
 
-## 새 항목 추가하기
+## 관리자 페이지로 추가·수정하기 (권장)
+
+사이트 주소 뒤에 `admin.html`을 붙여 엽니다.
+`https://valuecreatorhui-prog.github.io/houseofjoy/admin.html`
+
+- 처음 한 번 GitHub 토큰을 넣습니다. 만드는 방법은 그 화면에 적혀 있습니다. (Fine-grained token, houseofjoy 저장소, Contents: Read and write)
+- 항목 추가·수정·삭제, 사진 업로드, 추천지수(하트), 장면 묶기를 모두 화면에서 할 수 있습니다.
+- 저장하면 GitHub에 바로 기록되고, 사이트에는 1~2분 안에 반영됩니다.
+- 토큰은 그 브라우저에만 저장됩니다. 다른 기기에서는 다시 넣어야 하고, "토큰 지우기"로 지울 수 있습니다.
+
+## 파일로 직접 추가하기
 
 1. 사진을 `img/` 폴더에 넣습니다. (예: `img/plate-21.jpg`, 가로 4:3 권장)
 2. `data/items.js`의 `ITEMS` 배열에 항목 하나를 복사해 붙이고 내용을 바꿉니다.

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="styles.css?v=19">
+  <link rel="stylesheet" href="admin.css?v=1">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <title>관리 — House of Joy</title>
+</head>
+<body data-page="admin">
+  <header class="header"><div class="wrap">
+    <a class="brand" href="index.html">House of Joy<small>ADMIN</small></a>
+    <nav class="nav"><a href="index.html" target="_blank" rel="noopener">사이트 보기 ↗</a><a href="#" id="logout" hidden>토큰 지우기</a></nav>
+  </div></header>
+
+  <main class="wrap admin">
+    <!-- 로그인 -->
+    <section id="login" class="panel" hidden>
+      <h1>관리자 연결</h1>
+      <p class="help">이 페이지는 GitHub 저장소에 직접 저장합니다. 한 번만 토큰을 넣어두면 이 브라우저에 기억됩니다.</p>
+      <ol class="help steps">
+        <li>GitHub 로그인 후 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">새 Fine-grained 토큰 만들기</a>를 엽니다.</li>
+        <li>Token name은 아무거나, Expiration은 길게(예: 1년).</li>
+        <li>Repository access에서 <b>Only select repositories</b> → <b>houseofjoy</b> 선택.</li>
+        <li>Permissions → Repository permissions → <b>Contents</b>를 <b>Read and write</b>로.</li>
+        <li>Generate token을 누르고, 나온 토큰(github_pat_…)을 아래에 붙여넣습니다.</li>
+      </ol>
+      <form id="loginForm" class="row">
+        <input id="token" type="password" placeholder="github_pat_…" autocomplete="off" required>
+        <button class="btn primary" type="submit">연결</button>
+      </form>
+      <p id="loginMsg" class="msg"></p>
+    </section>
+
+    <!-- 본문 -->
+    <section id="app" hidden>
+      <div class="cols">
+        <!-- 목록 -->
+        <aside class="list-col">
+          <div class="list-head">
+            <h2>항목 <span id="count" class="n"></span></h2>
+            <button class="btn ghost sm" id="newBtn" type="button">+ 새 항목</button>
+          </div>
+          <ul id="list" class="items"></ul>
+
+          <div class="list-head" style="margin-top:40px">
+            <h2>장면</h2>
+            <button class="btn ghost sm" id="newSceneBtn" type="button">+ 새 장면</button>
+          </div>
+          <ul id="sceneList" class="items"></ul>
+        </aside>
+
+        <!-- 편집 폼 -->
+        <div class="form-col">
+          <form id="itemForm" class="panel" hidden>
+            <div class="form-head"><h2 id="formTitle">새 항목</h2><span id="formId" class="n"></span></div>
+
+            <label>갈래
+              <select name="category" id="category" required></select>
+            </label>
+            <label>이름 <input name="name" required placeholder="예: 지름 21cm 무광 흰 접시"></label>
+            <label>한 줄 설명 <input name="oneLine" placeholder="카드에 보이는 한 줄"></label>
+            <div class="two">
+              <label>가격 <input name="price" placeholder="예: 1장 18,000원대"></label>
+              <label>정보 <input name="info" placeholder="예: 지름 21cm · 무광 · 전자레인지 가능"></label>
+            </div>
+            <label>추천지수
+              <div class="heartpick" id="heartpick" role="radiogroup" aria-label="추천지수">
+                <button type="button" data-v="1">♥</button><button type="button" data-v="2">♥</button><button type="button" data-v="3">♥</button><button type="button" data-v="4">♥</button><button type="button" data-v="5">♥</button>
+                <span id="ratingLabel" class="n"></span>
+              </div>
+              <input type="hidden" name="rating" id="rating" value="0">
+            </label>
+            <label>내 의견 <textarea name="opinion" rows="7" placeholder="자유롭게. 빈 줄로 문단을 나눌 수 있어요."></textarea></label>
+            <label>이런 분께 권해요 <textarea name="forWhom" rows="2"></textarea></label>
+            <div class="two">
+              <label>링크 (구매처 또는 지도) <input name="link" type="url" placeholder="https://"></label>
+              <label>태그 (쉼표로 구분) <input name="tags" placeholder="아침, 빵, 1인"></label>
+            </div>
+            <label>사진
+              <div class="imgrow">
+                <div class="imgprev" id="imgprev"><span>사진 없음</span></div>
+                <div>
+                  <input type="file" id="imageFile" accept="image/*">
+                  <p class="help">가로 4:5 비율이 가장 예쁘게 나옵니다. 올릴 때 자동으로 줄여서 저장합니다.</p>
+                  <button type="button" class="btn ghost sm" id="imgClear" hidden>사진 빼기</button>
+                </div>
+              </div>
+              <input type="hidden" name="image" id="image">
+            </label>
+            <label>장면에 넣기
+              <div id="sceneChecks" class="checks"></div>
+            </label>
+
+            <div class="form-actions">
+              <button class="btn primary" type="submit" id="saveBtn">저장하고 사이트에 올리기</button>
+              <button class="btn ghost" type="button" id="cancelBtn">취소</button>
+              <button class="btn danger" type="button" id="deleteBtn" hidden>삭제</button>
+            </div>
+            <p id="formMsg" class="msg"></p>
+          </form>
+
+          <form id="sceneForm" class="panel" hidden>
+            <div class="form-head"><h2 id="sceneFormTitle">새 장면</h2><span id="sceneFormId" class="n"></span></div>
+            <label>제목 <input name="title" required placeholder="예: 좋아하는 빵을 먹는 아침"></label>
+            <label>설명 <textarea name="body" rows="3"></textarea></label>
+            <p class="help">장면에 들어갈 항목은 각 항목 편집 화면의 "장면에 넣기"에서 고릅니다.</p>
+            <div class="form-actions">
+              <button class="btn primary" type="submit">저장하고 사이트에 올리기</button>
+              <button class="btn ghost" type="button" id="sceneCancelBtn">취소</button>
+              <button class="btn danger" type="button" id="sceneDeleteBtn" hidden>삭제</button>
+            </div>
+            <p id="sceneMsg" class="msg"></p>
+          </form>
+
+          <div id="empty" class="panel quiet">
+            <p>왼쪽에서 항목을 고르거나 <b>+ 새 항목</b>을 누르세요.</p>
+            <p class="help">저장하면 GitHub에 바로 기록되고, 사이트에는 보통 1~2분 안에 반영됩니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="admin.js?v=1"></script>
+</body>
+</html>
