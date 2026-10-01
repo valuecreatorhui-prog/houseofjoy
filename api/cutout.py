@@ -38,8 +38,20 @@ def mask_for(img: Image.Image) -> Image.Image:
     return m
 
 
-def studio(img: Image.Image, W=1200, H=1500) -> Image.Image:
-    """잘라낸 물건을 옅은 회색 그라데이션 배경 가운데에 놓고 부드러운 접지 그림자를 넣습니다."""
+PRESETS = {
+    "studio":   ((236, 236, 236), (229, 229, 229)),   # 참고 사진의 배경(#EAEAEA)과 같은 중립 회색, 거의 평면
+    "offwhite": ((250, 250, 249), (240, 240, 238)),
+    "warm":     ((238, 235, 230), (226, 222, 215)),
+    "cool":     ((236, 238, 241), (222, 225, 230)),
+    "sage":     ((232, 235, 230), (216, 221, 214)),
+    "stone":    ((224, 222, 218), (204, 201, 196)),
+    "charcoal": ((62, 62, 62), (38, 38, 38)),
+}
+
+
+def studio(img: Image.Image, preset="studio", W=1200, H=1500) -> Image.Image:
+    """잘라낸 물건을 가운데가 살짝 밝은 배경 위에 놓고 부드러운 접지 그림자를 넣습니다."""
+    top, bot = PRESETS.get(preset, PRESETS["studio"])
     m = mask_for(img)
     cut = img.convert("RGBA")
     cut.putalpha(m)
@@ -50,16 +62,15 @@ def studio(img: Image.Image, W=1200, H=1500) -> Image.Image:
     scale = min((W * 0.78) / cut.width, (H * 0.74) / cut.height)
     cut = cut.resize((max(1, int(cut.width * scale)), max(1, int(cut.height * scale))), Image.LANCZOS)
 
-    grad = Image.linear_gradient("L").resize((W, H))
-    top = Image.new("RGBA", (W, H), (248, 248, 247, 255))
-    bot = Image.new("RGBA", (W, H), (236, 236, 235, 255))
-    canvas = Image.composite(bot, top, grad)
+    g = Image.radial_gradient("L").resize((int(W * 1.6), int(H * 1.6)))
+    g = g.crop(((g.width - W) // 2, (g.height - H) // 2 - int(H * 0.08), (g.width + W) // 2, (g.height + H) // 2 - int(H * 0.08)))
+    canvas = Image.composite(Image.new("RGBA", (W, H), bot + (255,)), Image.new("RGBA", (W, H), top + (255,)), g)
 
     x = (W - cut.width) // 2
     y = int(H * 0.55 - cut.height / 2)
     a = cut.split()[3]
     shadow = Image.new("RGBA", cut.size, (0, 0, 0, 0))
-    shadow.putalpha(a.point(lambda v: int(v * 0.38)))
+    shadow.putalpha(a.point(lambda v: int(v * (0.5 if preset == "charcoal" else 0.38))))
     shadow = shadow.resize((int(cut.width * 1.04), max(1, int(cut.height * 0.2))))
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     layer.paste(shadow, (x - int(cut.width * 0.02), y + cut.height - shadow.height // 2 - 8), shadow)
@@ -69,10 +80,10 @@ def studio(img: Image.Image, W=1200, H=1500) -> Image.Image:
     return canvas.convert("RGB")
 
 
-def process(image_bytes: bytes) -> bytes:
+def process(image_bytes: bytes, preset="studio") -> bytes:
     img = Image.open(io.BytesIO(image_bytes))
     img.load()
-    out = studio(img)
+    out = studio(img, preset)
     buf = io.BytesIO()
     out.save(buf, "JPEG", quality=90, optimize=True)
     return buf.getvalue()
@@ -113,7 +124,7 @@ class handler(BaseHTTPRequestHandler):
             if not raw:
                 return self._json(400, {"error": "이미지가 없습니다."})
             t0 = time.time()
-            out = process(raw)
+            out = process(raw, str(payload.get("preset") or "studio"))
             return self._json(200, {"data": base64.b64encode(out).decode(), "type": "image/jpeg", "seconds": round(time.time() - t0, 1)})
         except Exception as e:  # noqa: BLE001
             return self._json(500, {"error": f"처리 실패: {e}"})
