@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=6">
+  <link rel="stylesheet" href="admin.css?v=8">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -72,23 +72,27 @@
             <label>내 의견 <textarea name="opinion" rows="8" placeholder="자유롭게. 빈 줄로 문단을 나눌 수 있어요."></textarea></label>
             <label>이런 분께 권해요 <textarea name="forWhom" rows="2"></textarea></label>
             <div class="two">
-              <label>링크 (구매처 또는 지도) <input name="link" type="url" placeholder="https://"></label>
+              <label>링크 (구매처 또는 네이버 지도)
+                <div class="linkrow"><input name="link" type="url" placeholder="https://"><button type="button" class="btn ghost sm" id="linkPhotosBtn">링크에서 사진</button></div>
+                <div id="linkPhotos" class="linkphotos" hidden></div>
+              </label>
               <label>태그 (쉼표로 구분) <input name="tags" placeholder="아침, 빵, 1인"></label>
             </div>
-            <label>사진
-              <div class="imgrow">
-                <div class="imgprev" id="imgprev"><span>사진 없음</span></div>
-                <div>
-                  <input type="file" id="imageFile" accept="image/*">
-                  <p class="help">세로가 조금 긴 4:5 비율이 가장 예쁘게 나옵니다. 올릴 때 자동으로 줄여서 저장합니다.</p>
-                  <div class="imgbtns">
-                    <button type="button" class="btn ghost sm" id="cleanBtn" hidden>배경 정리</button>
-                    <button type="button" class="btn ghost sm" id="toneBtn" hidden>톤 정리</button>
-                    <button type="button" class="btn ghost sm" id="imgClear" hidden>사진 빼기</button>
-                  </div>
-                  <p class="help" id="cleanHelp" hidden>사진을 올리면 갈래에 맞춰 자동으로 정리본을 보여줍니다. 물건은 배경 정리(배경·로고 제거 후 스튜디오 배경), 음식·장소는 톤 정리(4:5 비율, 색감 통일). 원본을 쓰고 싶으면 "원본 유지"를 누르세요.</p>
+            <label>사진 (최대 3장 · 첫 장이 대표)
+              <div class="slots" id="slots">
+                <button type="button" class="slot on" data-i="0"><span>+</span></button>
+                <button type="button" class="slot" data-i="1"><span>+</span></button>
+                <button type="button" class="slot" data-i="2"><span>+</span></button>
+              </div>
+              <div class="imgrow2">
+                <input type="file" id="imageFile" accept="image/*">
+                <div class="imgbtns">
+                  <button type="button" class="btn ghost sm" id="cleanBtn" hidden>배경 정리</button>
+                  <button type="button" class="btn ghost sm" id="toneBtn" hidden>스튜디오 액자</button>
+                  <button type="button" class="btn ghost sm" id="imgClear" hidden>이 사진 빼기</button>
                 </div>
               </div>
+              <p class="help">선택한 칸에 사진이 들어갑니다. 직접 올리든 링크에서 가져오든 똑같이, 물건은 배경 정리·음식·장소는 스튜디오 액자로 정리본을 먼저 보여줍니다. 원본을 쓰려면 "원본 유지".</p>
               <div class="compare" id="compare" hidden>
                 <div><small>원본</small><div class="cmpimg"><img id="cmpBefore" alt=""></div></div>
                 <div><small id="cmpLabel">배경 정리</small><div class="cmpimg"><img id="cmpAfter" alt=""></div></div>
@@ -108,10 +112,6 @@
                   <button type="button" class="btn ghost sm" id="cmpKeep">원본 유지</button>
                 </div>
               </div>
-              <div hidden>
-                </div>
-              </div>
-              <input type="hidden" name="image" id="image">
             </label>
             <label>장면에 넣기 <div id="sceneChecks" class="checks"></div></label>
 
@@ -157,6 +157,6 @@
     </section>
   </main>
 
-  <script src="admin.js?v=8"></script>
+  <script src="admin.js?v=10"></script>
 </body>
 </html>

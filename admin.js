@@ -1,9 +1,11 @@
-/* 관리자: 비밀번호 로그인 후 /api 로 데이터와 사진을 저장합니다. */
+/* 관리자: 비밀번호 로그인 후 /api 로 데이터와 사진을 저장합니다. 사진은 글당 최대 3장, 직접 올리든 링크에서 가져오든 같은 정리 과정을 거칩니다. */
 (function () {
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   const hearts = n => { const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); return r ? `<span class="hearts">${"♥".repeat(r)}<i>${"♥".repeat(5 - r)}</i></span>` : ""; };
-  let state = null, editingId = null, editingSceneId = null, editingCatId = null, pendingImage = null; // pendingImage: { name, type, data }
+  const MAX_PHOTOS = 3;
+  let state = null, editingId = null, editingSceneId = null, editingCatId = null;
+  let slots = [], sel = 0, cleaned = null, preset = "studio";   // slots[i] = { url, pending:{name,type,data} } | null
 
   /* ── API ── */
   async function api(path, opts = {}) {
@@ -16,7 +18,7 @@
   const loadData = async () => { state = await api("/api/data"); };
   const saveData = () => api("/api/data", { method: "PUT", body: JSON.stringify(state) });
 
-  /* ── 이미지: 긴 변 1600px, JPEG 0.85 ── */
+  /* ── 이미지 변환 ── */
   function fileToJpeg(file) {
     return new Promise((resolve, reject) => {
       const img = new Image(); const url = URL.createObjectURL(file);
@@ -29,19 +31,62 @@
       img.onerror = () => reject(new Error("이미지를 읽을 수 없습니다.")); img.src = url;
     });
   }
+  /* 톤 정리: 4:5 가운데 자르기, 색온도 중립화(60%), 채도·대비 완화 */
+  function toneCleanBase64(base64) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const W = 1200, H = 1500, s = Math.max(W / img.width, H / img.height);
+        const sw = W / s, sh = H / s, sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+        const c = document.createElement("canvas"); c.width = W; c.height = H; const ctx = c.getContext("2d");
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+        const im = ctx.getImageData(0, 0, W, H), d = im.data, n = W * H;
+        let r = 0, g = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+        r /= n; g /= n; b /= n; const gray = (r + g + b) / 3, k = 0.6;
+        const fr = 1 + k * (gray / r - 1), fg = 1 + k * (gray / g - 1), fb = 1 + k * (gray / b - 1);
+        const lum = new Float32Array(n); let li = 0;
+        for (let i = 0; i < d.length; i += 4) { const R = d[i] * fr, G = d[i + 1] * fg, B = d[i + 2] * fb; lum[li++] = 0.299 * R + 0.587 * G + 0.114 * B; d[i] = R; d[i + 1] = G; d[i + 2] = B; }
+        const sorted = Float32Array.from(lum).sort(); const lo = sorted[Math.floor(n * 0.005)], hi = sorted[Math.floor(n * 0.995)];
+        const stretch = v => ((v - lo) / Math.max(hi - lo, 1)) * 235 + 12; const sat = 0.86;
+        for (let i = 0; i < d.length; i += 4) {
+          let R = stretch(d[i]), G = stretch(d[i + 1]), B = stretch(d[i + 2]); const L = 0.299 * R + 0.587 * G + 0.114 * B;
+          R = L + (R - L) * sat; G = L + (G - L) * sat; B = L + (B - L) * sat;
+          d[i] = Math.max(0, Math.min(255, R)); d[i + 1] = Math.max(0, Math.min(255, G)); d[i + 2] = Math.max(0, Math.min(255, B));
+        }
+        ctx.putImageData(im, 0, 0); resolve(c.toDataURL("image/jpeg", 0.88).split(",")[1]);
+      };
+      img.onerror = () => reject(new Error("이미지를 읽을 수 없습니다.")); img.src = "data:image/jpeg;base64," + base64;
+    });
+  }
+  /* 스튜디오 액자: 스튜디오 회색 배경 위에 여백을 두고 사진을 올림 */
+  function frameBase64(toneB64) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const W = 1200, H = 1500, c = document.createElement("canvas"); c.width = W; c.height = H; const ctx = c.getContext("2d");
+        const g = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, Math.max(W, H) * 0.8); g.addColorStop(0, "#ececec"); g.addColorStop(1, "#e3e3e3");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        const pw = Math.round(W * 0.8), ph = Math.round(H * 0.8), x = (W - pw) / 2, y = (H - ph) / 2;
+        ctx.save(); ctx.shadowColor = "rgba(0,0,0,0.22)"; ctx.shadowBlur = 48; ctx.shadowOffsetY = 16; ctx.fillStyle = "#fff"; ctx.fillRect(x, y, pw, ph); ctx.restore();
+        ctx.drawImage(img, x, y, pw, ph); resolve(c.toDataURL("image/jpeg", 0.88).split(",")[1]);
+      };
+      img.onerror = () => reject(new Error("이미지를 읽을 수 없습니다.")); img.src = "data:image/jpeg;base64," + toneB64;
+    });
+  }
 
-  /* ── UI ── */
+  /* ── UI 공통 ── */
   const msg = (el, text, cls = "") => { el.textContent = text; el.className = "msg " + cls; };
   const slug = p => { const d = new Date(), z = n => String(n).padStart(2, "0"); return `${p}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; };
   const catLabel = id => (state.categories.find(c => c.id === id) || {}).label || id;
   const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#catForm").hidden = w !== "cat"; $("#empty").hidden = w !== "empty"; };
   function showLogin() { $("#login").hidden = false; $("#app").hidden = true; $("#logout").hidden = true; setTimeout(() => $("#password").focus(), 50); }
+  const firstImage = it => (it.images && it.images[0]) || it.image || "";
 
   function renderList() {
     $("#count").textContent = state.items.length;
     $("#list").innerHTML = state.items.map(it => `
       <li data-id="${esc(it.id)}" class="${it.id === editingId ? "active" : ""}">
-        <div class="th">${it.image ? `<img src="${esc(it.image)}" alt="">` : ""}</div>
+        <div class="th">${firstImage(it) ? `<img src="${esc(firstImage(it))}" alt="">` : ""}</div>
         <div><b>${esc(it.name)}</b><small>${esc(catLabel(it.category))} · ${esc(it.price || "")}</small></div>${hearts(it.rating)}
       </li>`).join("") || `<li class="help" style="cursor:default">아직 글이 없습니다.</li>`;
     $("#catList").innerHTML = state.categories.map(c => `
@@ -56,55 +101,104 @@
       </li>`).join("") || `<li class="help" style="cursor:default">장면이 없습니다.</li>`;
   }
 
-  function setRating(v) { $("#rating").value = v; $("#heartpick").querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.v) <= v)); $("#ratingLabel").textContent = v ? `${v} / 5` : "선택 안 함"; }
-  function setPreview(src) {
-    $("#imgprev").innerHTML = src ? `<img src="${esc(src)}" alt="">` : "<span>사진 없음</span>";
-    $("#imgClear").hidden = !src; $("#cleanBtn").hidden = !src; $("#toneBtn").hidden = !src; $("#cleanHelp").hidden = !src; $("#compare").hidden = true;
+  /* ── 사진 슬롯 ── */
+  const slotSrc = s => s ? (s.pending ? "data:image/jpeg;base64," + s.pending.data : s.url) : "";
+  function renderSlots() {
+    $("#slots").querySelectorAll(".slot").forEach((el, i) => {
+      const s = slots[i]; el.classList.toggle("on", i === sel); el.classList.toggle("filled", !!s);
+      el.innerHTML = s ? `<img src="${esc(slotSrc(s))}" alt="">${i === 0 ? '<span class="badge">대표</span>' : ""}` : "<span>+</span>";
+    });
+    const has = !!slots[sel];
+    $("#cleanBtn").hidden = !has; $("#toneBtn").hidden = !has; $("#imgClear").hidden = !has;
   }
-  /* 현재 사진(새로 고른 파일 또는 이미 올라간 URL)을 base64로 */
+  function selectSlot(i) { sel = i; $("#compare").hidden = true; cleaned = null; renderSlots(); }
+  function firstEmptySlot() { const i = slots.findIndex(s => !s); return i < 0 ? sel : i; }
+  function putPhoto(pending) { // 새 사진을 선택한 칸(비어 있으면) 또는 첫 빈 칸에
+    const i = slots[sel] ? firstEmptySlot() : sel; sel = i; slots[i] = { url: "", pending }; renderSlots(); autoClean();
+  }
   async function currentImageBase64() {
-    if (pendingImage) return pendingImage.data;
-    const url = $("#image").value; if (!url) return null;
-    const blob = await (await fetch(url, { cache: "no-store" })).blob();
+    const s = slots[sel]; if (!s) return null;
+    if (s.pending) return s.pending.data;
+    const blob = await (await fetch(s.url, { cache: "no-store" })).blob();
     return await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
   }
-  let cleaned = null, preset = "studio";
+  function setRating(v) { $("#rating").value = v; $("#heartpick").querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.v) <= v)); $("#ratingLabel").textContent = v ? `${v} / 5` : "선택 안 함"; }
+
+  /* ── 정리: 배경(물건) / 스튜디오 액자(그 외) ── */
+  function showCompare(before, after, label, withPresets) {
+    $("#cmpLabel").textContent = label; $("#presets").hidden = !withPresets;
+    $("#cmpBefore").src = "data:image/jpeg;base64," + before; $("#cmpAfter").src = "data:image/jpeg;base64," + after; $("#compare").hidden = false;
+  }
   async function cleanBackground() {
     const btn = $("#cleanBtn"); btn.disabled = true; btn.textContent = "정리 중…"; msg($("#formMsg"), "");
     try {
       const data = await currentImageBase64(); if (!data) throw new Error("사진이 없습니다.");
       const r = await fetch("/api/cutout", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data, preset }) });
       const j = await r.json().catch(() => ({})); if (r.status === 401) { showLogin(); return; } if (!r.ok) throw new Error(j.error || r.status);
-      cleaned = { name: ((pendingImage && pendingImage.name) || "photo.jpg").replace(/\.[^.]+$/, "") + "-clean.jpg", type: "image/jpeg", data: j.data };
-      $("#cmpLabel").textContent = "배경 정리"; $("#presets").hidden = false; $("#cmpBefore").src = "data:image/jpeg;base64," + data; $("#cmpAfter").src = "data:image/jpeg;base64," + j.data; $("#compare").hidden = false;
+      cleaned = { name: "photo-clean.jpg", type: "image/jpeg", data: j.data }; showCompare(data, j.data, "배경 정리", true);
     } catch (err) { msg($("#formMsg"), "배경 정리 실패: " + err.message, "err"); }
     btn.disabled = false; btn.textContent = "배경 정리";
   }
+  async function toneClean() {
+    const btn = $("#toneBtn"); btn.disabled = true; btn.textContent = "정리 중…"; msg($("#formMsg"), "");
+    try {
+      const data = await currentImageBase64(); if (!data) throw new Error("사진이 없습니다.");
+      const out = await frameBase64(await toneCleanBase64(data));
+      cleaned = { name: "photo-frame.jpg", type: "image/jpeg", data: out }; showCompare(data, out, "스튜디오 액자", false);
+    } catch (err) { msg($("#formMsg"), "액자 정리 실패: " + err.message, "err"); }
+    btn.disabled = false; btn.textContent = "스튜디오 액자";
+  }
+  function autoClean() { ($("#category").value === "thing" ? cleanBackground : toneClean)(); }
 
+  /* ── 링크에서 사진 ── */
+  async function linkPhotos() {
+    const f = $("#itemForm"), url = f.link.value.trim(), box = $("#linkPhotos"), btn = $("#linkPhotosBtn");
+    if (!url) return msg($("#formMsg"), "먼저 링크를 넣어 주세요.", "err");
+    btn.disabled = true; btn.textContent = "가져오는 중…"; box.hidden = false; box.innerHTML = `<span class="help note">사진을 찾는 중…</span>`;
+    try {
+      const j = await api("/api/linkphotos", { method: "POST", body: JSON.stringify({ url }) });
+      if (!f.name.value.trim() && j.name) f.name.value = j.name;
+      box.innerHTML = j.photos.map(p => `<div class="ph" data-src="${esc(p.src)}"><img src="${esc(p.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>`).join("")
+        + `<span class="help note">${j.photos.length ? `${esc(j.name || "")} · 사진을 누르면 선택한 칸에 넣고 바로 정리본을 보여줍니다. (최대 ${MAX_PHOTOS}장)` : esc(j.note || "이 링크에서는 사진을 찾지 못했습니다.")}</span>`;
+    } catch (err) { box.innerHTML = `<span class="help note">${esc(err.message)}</span>`; }
+    btn.disabled = false; btn.textContent = "링크에서 사진";
+  }
+  async function useLinkPhoto(src) {
+    if (slots.every(Boolean) && slots[sel]) { if (!confirm("세 칸이 모두 찼습니다. 선택한 칸의 사진을 바꿀까요?")) return; }
+    msg($("#formMsg"), "사진 가져오는 중…");
+    try { const j = await api("/api/fetchimage", { method: "POST", body: JSON.stringify({ src }) }); msg($("#formMsg"), ""); putPhoto({ name: "link-photo.jpg", type: "image/jpeg", data: j.data }); }
+    catch (err) { msg($("#formMsg"), "사진 가져오기 실패: " + err.message, "err"); }
+  }
+
+  /* ── 글 폼 ── */
   function openItem(id) {
-    const f = $("#itemForm"); f.reset(); pendingImage = null; cleaned = null; editingId = id; editingSceneId = null; editingCatId = null;
+    const f = $("#itemForm"); f.reset(); editingId = id; editingSceneId = null; editingCatId = null; cleaned = null; sel = 0;
     const it = id ? state.items.find(i => i.id === id) : null;
     $("#formTitle").textContent = it ? "글 수정" : "새 글"; $("#formId").textContent = it ? it.id : "";
     $("#category").innerHTML = state.categories.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join("");
     $("#sceneChecks").innerHTML = state.scenes.map(sc => `<label><input type="checkbox" name="scene" value="${esc(sc.id)}" ${it && sc.items.includes(it.id) ? "checked" : ""}> ${esc(sc.title)}</label>`).join("") || `<span class="help">장면이 없습니다. 왼쪽에서 먼저 만들 수 있어요.</span>`;
+    const imgs = it ? (it.images && it.images.length ? it.images : (it.image ? [it.image] : [])) : [];
+    slots = Array.from({ length: MAX_PHOTOS }, (_, i) => imgs[i] ? { url: imgs[i], pending: null } : null);
     if (it) {
       f.category.value = it.category; f.name.value = it.name || ""; f.oneLine.value = it.oneLine || ""; f.price.value = it.price || ""; f.info.value = it.info || "";
-      f.opinion.value = it.opinion || ""; f.forWhom.value = it.forWhom || ""; f.link.value = it.link || ""; f.tags.value = (it.tags || []).join(", ");
-      $("#image").value = it.image || ""; setPreview(it.image || ""); setRating(it.rating || 0);
-    } else { $("#image").value = ""; setPreview(""); setRating(0); }
-    $("#deleteBtn").hidden = !it; msg($("#formMsg"), ""); showPanel("item"); renderList();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+      f.opinion.value = it.opinion || ""; f.forWhom.value = it.forWhom || ""; f.link.value = it.link || ""; f.tags.value = (it.tags || []).join(", "); setRating(it.rating || 0);
+    } else setRating(0);
+    $("#compare").hidden = true; $("#linkPhotos").hidden = true; $("#linkPhotos").innerHTML = ""; $("#imageFile").value = "";
+    renderSlots(); $("#deleteBtn").hidden = !it; msg($("#formMsg"), ""); showPanel("item"); renderList(); window.scrollTo({ top: 0, behavior: "smooth" });
   }
-
   async function submitItem(e) {
     e.preventDefault();
     const f = $("#itemForm"), btn = $("#saveBtn"); btn.disabled = true; msg($("#formMsg"), "저장 중…");
     try {
       const id = editingId || slug("item");
-      let image = $("#image").value;
-      if (pendingImage) { msg($("#formMsg"), "사진 올리는 중…"); image = (await api("/api/upload", { method: "POST", body: JSON.stringify(pendingImage) })).url; }
+      const images = [];
+      for (let i = 0; i < slots.length; i++) {
+        const s = slots[i]; if (!s) continue;
+        if (s.pending) { msg($("#formMsg"), `사진 ${images.length + 1} 올리는 중…`); s.url = (await api("/api/upload", { method: "POST", body: JSON.stringify(s.pending) })).url; s.pending = null; }
+        images.push(s.url);
+      }
       const item = {
-        id, category: f.category.value, name: f.name.value.trim(), oneLine: f.oneLine.value.trim(), image,
+        id, category: f.category.value, name: f.name.value.trim(), oneLine: f.oneLine.value.trim(), image: images[0] || "", images,
         price: f.price.value.trim(), info: f.info.value.trim(), rating: Number($("#rating").value) || 0,
         opinion: f.opinion.value.trim(), forWhom: f.forWhom.value.trim(), link: f.link.value.trim(),
         tags: f.tags.value.split(",").map(s => s.trim()).filter(Boolean),
@@ -114,7 +208,7 @@
       const chosen = [...f.querySelectorAll('input[name="scene"]:checked')].map(c => c.value);
       state.scenes.forEach(sc => { sc.items = sc.items.filter(x => x !== id); if (chosen.includes(sc.id)) sc.items.push(id); });
       await saveData();
-      editingId = id; $("#formId").textContent = id; $("#formTitle").textContent = "글 수정"; $("#deleteBtn").hidden = false; pendingImage = null; $("#image").value = image; setPreview(image);
+      editingId = id; $("#formId").textContent = id; $("#formTitle").textContent = "글 수정"; $("#deleteBtn").hidden = false; renderSlots();
       renderList(); msg($("#formMsg"), "저장했습니다. 사이트에 바로 반영됩니다.", "ok");
     } catch (err) { msg($("#formMsg"), "저장 실패: " + err.message, "err"); }
     btn.disabled = false;
@@ -126,6 +220,7 @@
     catch (err) { msg($("#formMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
+  /* ── 장면 ── */
   function openScene(id) {
     const f = $("#sceneForm"); f.reset(); editingSceneId = id; editingId = null; editingCatId = null;
     const sc = id ? state.scenes.find(s => s.id === id) : null;
@@ -148,50 +243,6 @@
     try { state.scenes = state.scenes.filter(s => s.id !== sc.id); await saveData(); editingSceneId = null; renderList(); showPanel("empty"); }
     catch (err) { msg($("#sceneMsg"), "삭제 실패: " + err.message, "err"); }
   }
-
-  /* ── 톤 정리(브라우저에서, 서버·비용 없음): 4:5 가운데 자르기, 색온도 중립화, 채도·대비 완화 ── */
-  function toneCleanBase64(base64) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const W = 1200, H = 1500, s = Math.max(W / img.width, H / img.height);
-        const sw = W / s, sh = H / s, sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
-        const c = document.createElement("canvas"); c.width = W; c.height = H; const ctx = c.getContext("2d");
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
-        const im = ctx.getImageData(0, 0, W, H), d = im.data, n = W * H;
-        let r = 0, g = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
-        r /= n; g /= n; b /= n; const gray = (r + g + b) / 3, k = 0.6; // 그레이월드 화이트밸런스, 60%만 적용
-        const fr = 1 + k * (gray / r - 1), fg = 1 + k * (gray / g - 1), fb = 1 + k * (gray / b - 1);
-        const lum = new Float32Array(n); let li = 0;
-        for (let i = 0; i < d.length; i += 4) { const R = d[i] * fr, G = d[i + 1] * fg, B = d[i + 2] * fb; lum[li++] = 0.299 * R + 0.587 * G + 0.114 * B; d[i] = R; d[i + 1] = G; d[i + 2] = B; }
-        const sorted = Float32Array.from(lum).sort(); const lo = sorted[Math.floor(n * 0.005)], hi = sorted[Math.floor(n * 0.995)];
-        const stretch = v => ((v - lo) / Math.max(hi - lo, 1)) * 235 + 12;  // 완전한 검정·흰색은 피해 부드럽게
-        const sat = 0.86;
-        for (let i = 0; i < d.length; i += 4) {
-          let R = stretch(d[i]), G = stretch(d[i + 1]), B = stretch(d[i + 2]);
-          const L = 0.299 * R + 0.587 * G + 0.114 * B;
-          R = L + (R - L) * sat; G = L + (G - L) * sat; B = L + (B - L) * sat;
-          d[i] = Math.max(0, Math.min(255, R)); d[i + 1] = Math.max(0, Math.min(255, G)); d[i + 2] = Math.max(0, Math.min(255, B));
-        }
-        ctx.putImageData(im, 0, 0);
-        resolve(c.toDataURL("image/jpeg", 0.88).split(",")[1]);
-      };
-      img.onerror = () => reject(new Error("이미지를 읽을 수 없습니다.")); img.src = "data:image/jpeg;base64," + base64;
-    });
-  }
-  async function toneClean() {
-    const btn = $("#toneBtn"); btn.disabled = true; btn.textContent = "정리 중…"; msg($("#formMsg"), "");
-    try {
-      const data = await currentImageBase64(); if (!data) throw new Error("사진이 없습니다.");
-      const out = await toneCleanBase64(data);
-      cleaned = { name: ((pendingImage && pendingImage.name) || "photo.jpg").replace(/\.[^.]+$/, "") + "-tone.jpg", type: "image/jpeg", data: out };
-      $("#cmpLabel").textContent = "톤 정리"; $("#presets").hidden = true;
-      $("#cmpBefore").src = "data:image/jpeg;base64," + data; $("#cmpAfter").src = "data:image/jpeg;base64," + out; $("#compare").hidden = false;
-    } catch (err) { msg($("#formMsg"), "톤 정리 실패: " + err.message, "err"); }
-    btn.disabled = false; btn.textContent = "톤 정리";
-  }
-  /* 사진을 고르면 갈래에 따라 자동으로 정리본 제안 */
-  function autoClean() { ($("#category").value === "thing" ? cleanBackground : toneClean)(); }
 
   /* ── 갈래 ── */
   function openCat(id) {
@@ -221,9 +272,8 @@
     catch (err) { msg($("#catMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
-  /* ── 시작 ── */
+  /* ── 시작/이벤트 ── */
   async function enter() { $("#login").hidden = true; $("#app").hidden = false; $("#logout").hidden = false; await loadData(); renderList(); showPanel("empty"); }
-
   $("#loginForm").addEventListener("submit", async e => {
     e.preventDefault(); const btn = $("#loginBtn"); btn.disabled = true; msg($("#loginMsg"), "");
     try { await api("/api/login", { method: "POST", body: JSON.stringify({ password: $("#password").value }) }); $("#password").value = ""; await enter(); }
@@ -234,26 +284,29 @@
   $("#newBtn").addEventListener("click", () => openItem(null));
   $("#newSceneBtn").addEventListener("click", () => openScene(null));
   $("#newCatBtn").addEventListener("click", () => openCat(null));
-  $("#catList").addEventListener("click", e => { const li = e.target.closest("li[data-cat]"); if (li) openCat(li.dataset.cat); });
-  $("#catForm").addEventListener("submit", submitCat);
-  $("#catCancelBtn").addEventListener("click", () => { editingCatId = null; renderList(); showPanel("empty"); });
-  $("#catDeleteBtn").addEventListener("click", deleteCat);
   $("#list").addEventListener("click", e => { const li = e.target.closest("li[data-id]"); if (li) openItem(li.dataset.id); });
   $("#sceneList").addEventListener("click", e => { const li = e.target.closest("li[data-scene]"); if (li) openScene(li.dataset.scene); });
+  $("#catList").addEventListener("click", e => { const li = e.target.closest("li[data-cat]"); if (li) openCat(li.dataset.cat); });
   $("#itemForm").addEventListener("submit", submitItem);
   $("#cancelBtn").addEventListener("click", () => { editingId = null; renderList(); showPanel("empty"); });
   $("#deleteBtn").addEventListener("click", deleteItem);
   $("#sceneForm").addEventListener("submit", submitScene);
   $("#sceneCancelBtn").addEventListener("click", () => { editingSceneId = null; renderList(); showPanel("empty"); });
   $("#sceneDeleteBtn").addEventListener("click", deleteScene);
+  $("#catForm").addEventListener("submit", submitCat);
+  $("#catCancelBtn").addEventListener("click", () => { editingCatId = null; renderList(); showPanel("empty"); });
+  $("#catDeleteBtn").addEventListener("click", deleteCat);
   $("#heartpick").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (!b) return; const v = Number(b.dataset.v); setRating(v === Number($("#rating").value) ? 0 : v); });
-  $("#imageFile").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { pendingImage = await fileToJpeg(file); setPreview("data:image/jpeg;base64," + pendingImage.data); autoClean(); } catch (err) { msg($("#formMsg"), err.message, "err"); } });
-  $("#toneBtn").addEventListener("click", toneClean);
-  $("#imgClear").addEventListener("click", () => { pendingImage = null; $("#image").value = ""; $("#imageFile").value = ""; setPreview(""); });
+  $("#slots").addEventListener("click", e => { const b = e.target.closest(".slot"); if (!b) return; selectSlot(Number(b.dataset.i)); if (!slots[sel]) $("#imageFile").click(); });
+  $("#imageFile").addEventListener("change", async e => { const file = e.target.files[0]; if (!file) return; try { putPhoto(await fileToJpeg(file)); } catch (err) { msg($("#formMsg"), err.message, "err"); } e.target.value = ""; });
+  $("#imgClear").addEventListener("click", () => { slots[sel] = null; slots = [...slots.filter(Boolean), ...Array(MAX_PHOTOS).fill(null)].slice(0, MAX_PHOTOS); sel = Math.min(sel, Math.max(0, slots.filter(Boolean).length - 1)); $("#compare").hidden = true; renderSlots(); });
   $("#cleanBtn").addEventListener("click", cleanBackground);
+  $("#toneBtn").addEventListener("click", toneClean);
   $("#presets").addEventListener("click", e => { const b = e.target.closest("button[data-preset]"); if (!b) return; preset = b.dataset.preset; $("#presets").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); cleanBackground(); });
-  $("#cmpUse").addEventListener("click", () => { if (!cleaned) return; pendingImage = cleaned; $("#image").value = ""; $("#imgprev").innerHTML = `<img src="data:image/jpeg;base64,${cleaned.data}" alt="">`; $("#compare").hidden = true; msg($("#formMsg"), "정리한 사진으로 바꿨습니다. 저장을 누르면 반영됩니다.", "ok"); });
+  $("#cmpUse").addEventListener("click", () => { if (!cleaned || !slots[sel]) return; slots[sel] = { url: "", pending: cleaned }; $("#compare").hidden = true; renderSlots(); msg($("#formMsg"), "정리한 사진으로 바꿨습니다. 저장을 누르면 반영됩니다.", "ok"); });
   $("#cmpKeep").addEventListener("click", () => { cleaned = null; $("#compare").hidden = true; });
+  $("#linkPhotosBtn").addEventListener("click", linkPhotos);
+  $("#linkPhotos").addEventListener("click", e => { const ph = e.target.closest(".ph"); if (ph) useLinkPhoto(ph.dataset.src); });
 
   fetch("/api/me", { credentials: "same-origin", cache: "no-store" }).then(r => r.json()).then(j => j.ok ? enter() : showLogin()).catch(showLogin);
 })();

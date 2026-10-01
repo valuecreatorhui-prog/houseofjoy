@@ -3,7 +3,8 @@ function run() {
   const S = window.SITE, CATS = window.CATEGORIES, ITEMS = window.ITEMS, SCENES = window.SCENES || [];
   const catById = Object.fromEntries(CATS.map(c => [c.id, c]));
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-  const imgOf = it => it.image || "img/placeholder.svg";
+  const imagesOf = it => (it.images && it.images.length ? it.images : (it.image ? [it.image] : []));
+  const imgOf = it => imagesOf(it)[0] || "img/placeholder.svg";
   const hearts = (n, cls = "hearts") => {
     const r = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
     return r ? `<span class="${cls}" aria-label="추천지수 ${r}/5">${"♥".repeat(r)}<i>${"♥".repeat(5 - r)}</i></span>` : "";
@@ -90,7 +91,10 @@ function run() {
     document.title = `${it.name} — ${S.name}`;
     const facts = [["가격", it.price], ["정보", it.info]].filter(([, v]) => v);
     root.innerHTML = `
-      <div class="figure"><img src="${esc(imgOf(it))}" alt="${esc(it.name)}"></div>
+      <div class="figure${imagesOf(it).length > 1 ? " slider" : ""}">
+        <div class="track">${(imagesOf(it).length ? imagesOf(it) : [imgOf(it)]).map((u, i) => `<img src="${esc(u)}" alt="${esc(it.name)} ${i + 1}" loading="${i ? "lazy" : "eager"}">`).join("")}</div>
+        ${imagesOf(it).length > 1 ? `<button class="nav prev" type="button" aria-label="이전">‹</button><button class="nav next" type="button" aria-label="다음">›</button><div class="dots">${imagesOf(it).map((_, i) => `<i ${i === 0 ? 'class="on"' : ""}></i>`).join("")}</div>` : ""}
+      </div>
       <div>
         <span class="cat" data-cat="${it.category}">${esc(cat.label || "")}</span>
         <h1>${esc(it.name)}</h1>
@@ -105,6 +109,15 @@ function run() {
         </div>
       </div>`;
 
+    const fig = root.querySelector(".figure.slider");
+    if (fig) {
+      const track = fig.querySelector(".track"), dots = [...fig.querySelectorAll(".dots i")], n = dots.length;
+      const idx = () => Math.round(track.scrollLeft / track.clientWidth);
+      const go = i => track.scrollTo({ left: ((i + n) % n) * track.clientWidth, behavior: "smooth" });
+      fig.querySelector(".prev").addEventListener("click", () => go(idx() - 1));
+      fig.querySelector(".next").addEventListener("click", () => go(idx() + 1));
+      track.addEventListener("scroll", () => dots.forEach((d, i) => d.classList.toggle("on", i === idx())), { passive: true });
+    }
     const rel = document.getElementById("related");
     const scene = SCENES.find(sc => sc.items.includes(it.id));
     const others = (scene ? scene.items.map(x => ITEMS.find(i => i.id === x)).filter(Boolean) : ITEMS.filter(i => i.category === it.category)).filter(i => i.id !== it.id).slice(0, 3);
