@@ -11,7 +11,7 @@
     document.title = page === "home" ? `${S.name} — ${S.tagline}` : document.title.replace("{name}", S.name);
     const header = document.querySelector(".header .wrap");
     if (header) header.innerHTML = `
-      <a class="brand" href="index.html">${esc(S.name)}<small>${esc(S.nameEn)}</small></a>
+      <a class="brand" href="index.html">${esc(S.name)}${S.nameEn ? `<small>${esc(S.nameEn)}</small>` : ""}</a>
       <nav class="nav">
         <a href="index.html" ${page === "home" ? 'aria-current="page"' : ""}>셀렉션</a>
         <a href="about.html" ${page === "about" ? 'aria-current="page"' : ""}>소개와 기준</a>
