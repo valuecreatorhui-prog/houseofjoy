@@ -1,9 +1,10 @@
 // 공용: 세션 쿠키(HMAC 서명), 인증 확인, Blob 읽기/쓰기
 const crypto = require("crypto");
-const { put, get } = require("@vercel/blob");
+const { put, list, del } = require("@vercel/blob");
 
 const COOKIE = "hoj_session";
-const DATA_PATH = "data/items.json";
+const DATA_PREFIX = "data/items-";   // 저장할 때마다 새 파일로 기록하고(캐시 회피), 가장 최근 파일을 읽습니다.
+const KEEP_VERSIONS = 10;
 const SESSION_DAYS = 30;
 
 function secret() {
@@ -39,19 +40,22 @@ function checkPassword(input) {
   return want.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+const newestFirst = blobs => blobs.slice().sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt) || (b.pathname > a.pathname ? 1 : -1));
+
 async function readData() {
-  const r = await get(DATA_PATH, { access: "public", useCache: false });
-  if (r && r.statusCode === 200) {
-    const text = await new Response(r.stream).text();
-    return JSON.parse(text);
-  }
-  return require("../data/seed.json");
+  const { blobs } = await list({ prefix: DATA_PREFIX, limit: 1000 });
+  if (!blobs.length) return require("../data/seed.json");
+  const latest = newestFirst(blobs)[0];
+  const r = await fetch(latest.url, { cache: "no-store" });
+  return r.json();
 }
 async function writeData(data) {
-  await put(DATA_PATH, JSON.stringify(data, null, 2), {
-    access: "public", contentType: "application/json; charset=utf-8",
-    addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 60,
+  await put(`${DATA_PREFIX}${Date.now()}.json`, JSON.stringify(data, null, 2), {
+    access: "public", contentType: "application/json; charset=utf-8", addRandomSuffix: true,
   });
+  const { blobs } = await list({ prefix: DATA_PREFIX, limit: 1000 });
+  const old = newestFirst(blobs).slice(KEEP_VERSIONS);
+  if (old.length) await del(old.map(b => b.url));
 }
 
 module.exports = { makeSessionCookie, clearSessionCookie, isAuthed, requireAuth, checkPassword, readData, writeData };
