@@ -191,6 +191,25 @@
     catch (err) { msg($("#formMsg"), "사진 가져오기 실패: " + err.message, "err"); }
   }
 
+  /* ── 북마클릿: 보고 있는 페이지의 사진 목록을 이 어드민으로 보냅니다 (서버가 못 여는 사이트용) ── */
+  const BOOKMARKLET = "javascript:" + encodeURIComponent("(function(){var A='__ORIGIN__';var c=function(u){return String(u||'').replace(/\\?.*$/,'')};var L=[];var og=document.querySelector('meta[property=\"og:image\"]');if(og&&og.content)L.push(c(og.content));[].slice.call(document.images).sort(function(a,b){return (b.naturalWidth*b.naturalHeight)-(a.naturalWidth*a.naturalHeight)}).forEach(function(i){var u=i.currentSrc||i.src;if(u&&/^https?:/.test(u)&&(i.naturalWidth>=300||/phinf|pstatic/.test(u)))L.push(c(u))});var s=document.documentElement.outerHTML.replace(/\\\\u002F/g,'/');(s.match(/https?:\\/\\/[a-z0-9.-]*phinf\\.pstatic\\.net\\/[^\"'\\\\\\s<>)]+?\\.(?:jpe?g|png|webp)/gi)||[]).forEach(function(u){L.push(c(u))});var U=[];L.forEach(function(x){if(x&&U.indexOf(x)<0)U.push(x)});var t=(document.querySelector('meta[property=\"og:title\"]')||{}).content||document.title;window.open(A+'/admin#import='+encodeURIComponent(JSON.stringify({name:t,url:location.href,photos:U.slice(0,24)})),'_blank')})();".replace("__ORIGIN__", location.origin));
+  $("#bookmarklet").href = BOOKMARKLET;
+  $("#bookmarklet").addEventListener("click", e => { e.preventDefault(); alert("이 버튼은 누르는 게 아니라 북마크바로 끌어다 놓는 것입니다. 그 뒤 상품 페이지에서 북마크를 누르세요."); });
+  $("#bmCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); msg($("#formMsg"), "북마크 코드를 복사했습니다. 북마크의 주소 칸에 붙여넣으세요.", "ok"); } catch (_) { prompt("아래 코드를 복사하세요", BOOKMARKLET); } });
+  function receiveImport() {
+    const m = location.hash.match(/^#import=(.+)$/); if (!m) return false;
+    let payload = null; try { payload = JSON.parse(decodeURIComponent(m[1])); } catch (_) {}
+    history.replaceState(null, "", location.pathname); if (!payload) return false;
+    if ($("#itemForm").hidden) openItem(null);
+    const f = $("#itemForm"); if (payload.url) f.importUrl.value = payload.url; if (!f.name.value.trim() && payload.name) f.name.value = String(payload.name).replace(/\s*[:|]\s*[^:|]*$/, "").slice(0, 60);
+    const photos = (payload.photos || []).filter(u => /^https?:\/\//.test(u)).slice(0, 24);
+    const box = $("#linkPhotos"); box.hidden = false;
+    box.innerHTML = photos.map(src => `<div class="ph" data-src="${esc(src)}"><img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>`).join("")
+      + `<span class="help note">${photos.length ? "북마크로 받은 사진 " + photos.length + "장 · 누르면 선택한 칸에 넣고 바로 정리본을 보여줍니다." : "받은 사진이 없습니다."}</span>`;
+    msg($("#formMsg"), photos.length ? "페이지에서 사진을 받았습니다. 아래에서 고르세요." : "", photos.length ? "ok" : "");
+    return true;
+  }
+
   /* ── 글 폼 ── */
   function openItem(id) {
     const f = $("#itemForm"); f.reset(); editingId = id; editingSceneId = null; editingCatId = null; cleaned = null; sel = 0;
@@ -231,6 +250,15 @@
     if (e) e.preventDefault();
     const f = $("#itemForm"), btn = $("#saveBtn"), dbtn = $("#draftBtn"); btn.disabled = dbtn.disabled = true; msg($("#formMsg"), "저장 중…");
     if (!f.name.value.trim()) { msg($("#formMsg"), "이름은 적어 주세요.", "err"); btn.disabled = dbtn.disabled = false; return; }
+    /* 안전장치: 이미 있는 글을 열어 둔 채 전혀 다른 글을 쓰면 기존 글이 덮어써집니다. 이름이 크게 바뀌면 한 번 묻습니다. */
+    const existing = editingId ? state.items.find(i => i.id === editingId) : null;
+    if (existing && existing.name && f.name.value.trim() !== existing.name) {
+      const same = (x, y) => { x = x.replace(/\s+/g, ""); y = y.replace(/\s+/g, ""); return x.includes(y.slice(0, 4)) || y.includes(x.slice(0, 4)); };
+      if (!same(existing.name, f.name.value.trim())) {
+        const ok = confirm(`지금 열려 있는 글은 "${existing.name}" 입니다.\n이 글의 내용을 "${f.name.value.trim()}" 으로 바꿔 덮어쓰려는 게 맞나요?\n\n[확인] 덮어쓰기   [취소] 새 글로 따로 저장`);
+        if (!ok) { editingId = null; $("#formId").textContent = ""; $("#formTitle").textContent = "새 글"; setFormState(null); $("#deleteBtn").hidden = true; msg($("#formMsg"), "새 글로 저장합니다. 기존 글은 그대로 둡니다."); }
+      }
+    }
     try {
       const id = editingId || slug("item");
       const images = [];
@@ -447,6 +475,7 @@
     $("#login").hidden = true; $("#app").hidden = false; $("#logout").hidden = false; $("#memoFab").hidden = false; $("#siteBtn").hidden = false;
     await loadData(); renderList(); showPanel("empty");
     let open = "0"; try { open = localStorage.getItem("hoj_memo_open") || "0"; } catch (_) {} if (open === "1") memoOpen(true);
+    receiveImport();
   }
   $("#loginForm").addEventListener("submit", async e => {
     e.preventDefault(); const btn = $("#loginBtn"); btn.disabled = true; msg($("#loginMsg"), "");

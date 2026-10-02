@@ -75,7 +75,7 @@ async function fromNaverShop(url) {
   const list = [...(og ? [clean(og)] : []), ...found.map(clean)];
   const photos = [...new Set(list)].slice(0, 18).map(src => ({ src: src + "?type=o1000", thumb: src + "?type=w300" }));
   const name = (s.match(/"dispName":"([^"]{2,80})"/) || s.match(/<title>([^<]{2,80})<\/title>/i) || [])[1] || "";
-  return { source: "naver-shop", name: decode(name).replace(/\s*:\s*네이버.*$/, "").slice(0, 60), photos, note: photos.length ? undefined : "네이버 쇼핑 페이지에서 사진을 찾지 못했습니다. 잠시 후 다시 시도하거나 사진을 직접 올려 주세요." };
+  return { source: "naver-shop", name: decode(name).replace(/\s*:\s*네이버.*$/, "").slice(0, 60), photos, note: photos.length ? undefined : "네이버 쇼핑은 서버 접속을 막아 주소만으로는 못 가져옵니다. 아래 \"북마크 버튼\" 방법을 쓰거나 사진을 직접 올려 주세요." };
 }
 
 /* ── 일반 페이지: og:image → 본문 이미지(큰 것 위주) ── */

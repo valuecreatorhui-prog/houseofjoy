@@ -160,3 +160,8 @@ input[type="file"] { font-size: 13px; }
 .crit .tools { grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 4px; }
 .crit .tools button { width: 30px; height: 30px; border: 1px solid var(--line); background: var(--bg); border-radius: 3px; font: inherit; cursor: pointer; color: var(--ink-2); }
 .crit .tools button:hover { border-color: var(--ink); color: var(--ink); }
+
+.bm { margin-top: 10px; font-size: 13px; }
+.bm summary { cursor: pointer; color: var(--ink-2); }
+.bm p { margin: 8px 0; }
+.bm .btn { cursor: grab; }

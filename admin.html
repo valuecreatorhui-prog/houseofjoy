@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=14">
+  <link rel="stylesheet" href="admin.css?v=15">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -78,6 +78,12 @@
             <label>사진 가져올 링크 (어드민에서만 씀, 사이트에는 안 나감)
               <div class="linkrow"><input name="importUrl" type="url" placeholder="https:// 네이버 지도, 쇼핑몰 상품 페이지 등"><button type="button" class="btn ghost sm" id="linkPhotosBtn">링크에서 사진</button></div>
               <div id="linkPhotos" class="linkphotos" hidden></div>
+              <details class="bm">
+                <summary>네이버 쇼핑(스마트스토어·브랜드스토어)처럼 "사진을 찾지 못했습니다"가 뜨는 페이지는?</summary>
+                <p class="help">그런 사이트는 서버 접속을 막아서 주소만으로는 못 가져옵니다. 대신 <b>아래 버튼을 브라우저 북마크바로 끌어다 놓고</b>, 상품 페이지를 보는 상태에서 그 북마크를 누르면 그 페이지의 사진 목록이 이 어드민으로 넘어옵니다. 어떤 사이트든 됩니다.</p>
+                <p><a id="bookmarklet" class="btn ghost sm" href="#" draggable="true">📎 House of Joy로 사진 보내기</a> <span class="help">← 이걸 북마크바로 드래그</span></p>
+                <p class="help">폰에서는 북마크 추가 후 주소를 아래 코드로 바꿔 저장하면 됩니다. <button type="button" class="btn ghost sm" id="bmCopy">코드 복사</button></p>
+              </details>
             </label>
             <div hidden>
             </div>
@@ -221,6 +227,6 @@
     <div class="memo-resize" id="memoResize"></div>
   </section>
   <script src="data/site.js?v=27"></script>
-  <script src="admin.js?v=18"></script>
+  <script src="admin.js?v=20"></script>
 </body>
 </html>
