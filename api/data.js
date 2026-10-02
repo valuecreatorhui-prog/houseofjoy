@@ -1,7 +1,7 @@
 const { requireAuth, isAuthed, readData, writeData } = require("./_lib");
 const isArr = Array.isArray;
 function publicView(d) {   // 임시저장(draft) 글은 사이트에 내보내지 않습니다.
-  const items = d.items.filter(i => !i.draft);
+  const items = d.items.filter(i => !i.draft).map(({ sourceUrl, ...rest }) => rest);   // sourceUrl(사진 가져온 링크)은 어드민 전용
   const ids = new Set(items.map(i => i.id));
   return { categories: d.categories, scenes: d.scenes.map(s => ({ ...s, items: (s.items || []).filter(x => ids.has(x)) })), items };
 }

@@ -164,7 +164,7 @@
 
   /* ── 링크에서 사진 ── */
   async function linkPhotos() {
-    const f = $("#itemForm"), url = f.link.value.trim(), box = $("#linkPhotos"), btn = $("#linkPhotosBtn");
+    const f = $("#itemForm"), url = f.importUrl.value.trim(), box = $("#linkPhotos"), btn = $("#linkPhotosBtn");
     if (!url) return msg($("#formMsg"), "먼저 링크를 넣어 주세요.", "err");
     btn.disabled = true; btn.textContent = "가져오는 중…"; box.hidden = false; box.innerHTML = `<span class="help note">사진을 찾는 중…</span>`;
     try {
@@ -193,12 +193,30 @@
     slots = Array.from({ length: MAX_PHOTOS }, (_, i) => imgs[i] ? { url: imgs[i], pending: null } : null);
     if (it) {
       f.category.value = it.category; f.name.value = it.name || ""; f.oneLine.value = it.oneLine || ""; f.price.value = it.price || ""; f.info.value = it.info || "";
-      f.opinion.value = it.opinion || ""; f.forWhom.value = it.forWhom || ""; f.link.value = it.link || ""; f.tags.value = (it.tags || []).join(", "); setRating(it.rating || 0);
+      f.opinion.value = it.opinion || ""; f.forWhom.value = it.forWhom || ""; f.link.value = it.link || ""; f.importUrl.value = it.sourceUrl || ""; f.tags.value = (it.tags || []).join(", "); setRating(it.rating || 0);
     } else setRating(0);
     $("#compare").hidden = true; $("#linkPhotos").hidden = true; $("#linkPhotos").innerHTML = ""; $("#imageFile").value = "";
     renderSlots(); $("#deleteBtn").hidden = !it; msg($("#formMsg"), ""); showPanel("item"); renderList(); window.scrollTo({ top: 0, behavior: "smooth" });
   }
   let formDirty = false;
+  function buildItem(id, images, draft) {
+    const f = $("#itemForm");
+    return {
+      id, category: f.category.value, name: f.name.value.trim(), oneLine: f.oneLine.value.trim(), image: images[0] || "", images,
+      price: f.price.value.trim(), info: f.info.value.trim(), rating: Number($("#rating").value) || 0,
+      opinion: f.opinion.value.trim(), forWhom: f.forWhom.value.trim(), link: f.link.value.trim(), sourceUrl: f.importUrl.value.trim(),
+      tags: f.tags.value.split(",").map(s => s.trim()).filter(Boolean), draft,
+    };
+  }
+  /* 미리보기: 저장하지 않은 현재 내용을 사이트 상세 페이지 모양 그대로 새 탭에서 봅니다 (이 브라우저 안에서만). */
+  function preview() {
+    const images = slots.filter(Boolean).map(slotSrc);
+    const item = buildItem(editingId || "preview", images, true);
+    if (!item.name) item.name = "(이름 없음)";
+    try { localStorage.setItem("hoj_preview", JSON.stringify({ item, categories: state.categories, at: Date.now() })); }
+    catch (e) { return msg($("#formMsg"), "미리보기 데이터가 너무 큽니다. 사진을 줄여 보세요.", "err"); }
+    window.open("/item?preview=1", "hoj_preview");
+  }
   function setFormState(draft) { const el = $("#formState"); el.hidden = draft === null; el.textContent = draft ? "임시저장 · 사이트에 안 보임" : "게시됨"; el.style.background = draft ? "#f3e9c8" : "#e3efe6"; el.style.color = draft ? "#6b5a1e" : "#2f5a3a"; }
   async function submitItem(e, asDraft = false) {
     if (e) e.preventDefault();
@@ -212,12 +230,7 @@
         if (s.pending) { msg($("#formMsg"), `사진 ${images.length + 1} 올리는 중…`); s.url = (await api("/api/upload", { method: "POST", body: JSON.stringify(s.pending) })).url; s.pending = null; }
         images.push(s.url);
       }
-      const item = {
-        id, category: f.category.value, name: f.name.value.trim(), oneLine: f.oneLine.value.trim(), image: images[0] || "", images,
-        price: f.price.value.trim(), info: f.info.value.trim(), rating: Number($("#rating").value) || 0,
-        opinion: f.opinion.value.trim(), forWhom: f.forWhom.value.trim(), link: f.link.value.trim(),
-        tags: f.tags.value.split(",").map(s => s.trim()).filter(Boolean), draft: !!asDraft,
-      };
+      const item = buildItem(id, images, !!asDraft);
       const chosen = [...f.querySelectorAll('input[name="scene"]:checked')].map(c => c.value);
       await commit(d => {
         const idx = d.items.findIndex(i => i.id === id);
@@ -363,6 +376,7 @@
   $("#catList").addEventListener("click", e => { const li = e.target.closest("li[data-cat]"); if (li) openCat(li.dataset.cat); });
   $("#itemForm").addEventListener("submit", e => submitItem(e, false));
   $("#draftBtn").addEventListener("click", () => submitItem(null, true));
+  $("#previewBtn").addEventListener("click", preview);
   $("#itemForm").addEventListener("input", () => { formDirty = true; });
   $("#cancelBtn").addEventListener("click", e => { if (formDirty && !confirm("저장하지 않은 내용이 있습니다. 그래도 닫을까요?")) { e.stopImmediatePropagation(); } }, true);
   $("#cancelBtn").addEventListener("click", () => { editingId = null; renderList(); showPanel("empty"); });

@@ -83,9 +83,13 @@ function run() {
 
   /* 상세 */
   function item() {
-    const id = new URLSearchParams(location.search).get("id");
-    const it = ITEMS.find(i => i.id === id);
+    const q = new URLSearchParams(location.search), id = q.get("id");
+    let it = ITEMS.find(i => i.id === id), isPreview = false;
+    if (q.get("preview") === "1") {
+      try { const pv = JSON.parse(localStorage.getItem("hoj_preview") || "null"); if (pv && pv.item) { it = pv.item; isPreview = true; (pv.categories || []).forEach(c => { if (!catById[c.id]) catById[c.id] = c; }); } } catch (_) {}
+    }
     const root = document.getElementById("detail");
+    if (isPreview) { const bar = document.createElement("div"); bar.className = "preview-bar"; bar.textContent = "미리보기 · 저장 전 모습입니다. 이 탭은 나혜님 브라우저에서만 보입니다."; document.body.prepend(bar); }
     if (!it) { root.innerHTML = `<p class="empty">찾는 항목이 없습니다. <a href="index.html">셀렉션으로 돌아가기</a></p>`; return; }
     const cat = catById[it.category] || {};
     document.title = `${it.name} — ${S.name}`;
@@ -119,6 +123,7 @@ function run() {
       track.addEventListener("scroll", () => dots.forEach((d, i) => d.classList.toggle("on", i === idx())), { passive: true });
     }
     const rel = document.getElementById("related");
+    if (isPreview) { if (rel) rel.innerHTML = ""; return; }
     const scene = SCENES.find(sc => sc.items.includes(it.id));
     const others = (scene ? scene.items.map(x => ITEMS.find(i => i.id === x)).filter(Boolean) : ITEMS.filter(i => i.category === it.category)).filter(i => i.id !== it.id).slice(0, 3);
     if (rel) rel.innerHTML = others.length ? `<h2>${scene ? `같은 장면 · ${esc(scene.title)}` : `같은 갈래의 다른 ${esc(cat.label)}`}</h2><div class="grid">${others.map(card).join("")}</div>` : "";

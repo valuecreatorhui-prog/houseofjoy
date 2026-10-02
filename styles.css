@@ -191,3 +191,6 @@ p { margin: 0; }
   .section { padding-top: 72px; }
   .nav { gap: 18px; }
 }
+
+/* 미리보기 띠 */
+.preview-bar { position: sticky; top: 0; z-index: 20; background: #f3e9c8; color: #6b5a1e; font-size: 13px; text-align: center; padding: 8px 16px; }
