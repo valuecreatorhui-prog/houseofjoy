@@ -21,7 +21,8 @@ module.exports = async (req, res) => {
     const items = d.items.map(it => {
       const p = prevById.get(it.id) || {}; const out = { ...it };
       out.createdAt = p.createdAt || it.createdAt || idTime(it.id) || now;
-      if (!it.draft || p.publishedAt || it.publishedAt) out.publishedAt = p.publishedAt || it.publishedAt || now; else delete out.publishedAt;
+      if (it.draft && it.publishedAt === null) delete out.publishedAt;   // 임시글에서 명시적으로 null → 게시 이력 지움 (다른 글을 덮어쓴 경우 정리용)
+      else if (!it.draft || p.publishedAt || it.publishedAt) out.publishedAt = p.publishedAt || it.publishedAt || now; else delete out.publishedAt;
       return out;
     });
     const site = d.site && typeof d.site === "object" && !isArr(d.site) ? d.site : (prev.site || null);
