@@ -52,13 +52,29 @@ async function fromNaver(id) {
 
 /* ── 네이버 쇼핑(스마트스토어·브랜드스토어): 화면은 스크립트로 그리지만 HTML 안의 상품 JSON에 사진 주소가 들어 있습니다 ── */
 const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+async function fetchText(url, headers) {
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 20000);
+  try { const r = await fetch(url, { headers, redirect: "follow", signal: ctrl.signal }); return (await r.text()).slice(0, 3_000_000); }
+  finally { clearTimeout(t); }
+}
+/* 네이버 쇼핑은 서버(클라우드) 접속을 자주 막습니다. 직접 받아 보고 안 되면 무료 읽기 프록시(r.jina.ai)로 한 번 더 시도합니다. */
+async function naverShopHtml(url) {
+  let html = "";
+  try { html = await fetchText(url, { "User-Agent": MOBILE_UA, "Accept-Language": "ko-KR,ko;q=0.9", Accept: "text/html" }); } catch (_) {}
+  if (!/shop-phinf\.pstatic\.net/.test(html.replace(/\\u002F/g, "/"))) {
+    try { html = await fetchText("https://r.jina.ai/" + url, { "X-Return-Format": "html", "User-Agent": UA }); } catch (_) {}
+  }
+  return html;
+}
 async function fromNaverShop(url) {
-  const r = await fetch(url, { headers: { "User-Agent": MOBILE_UA, "Accept-Language": "ko-KR,ko;q=0.9", Accept: "text/html" }, redirect: "follow" });
-  const html = (await r.text()).slice(0, 3_000_000);
+  const html = await naverShopHtml(url);
   const s = html.replace(/\\u002F/g, "/").replace(/\\\//g, "/");
-  const found = s.match(/https?:\/\/shop-phinf\.pstatic\.net\/[^"'\\\s<>]+?\.(?:jpe?g|png|webp)/gi) || [];
-  const photos = [...new Set(found.map(u => u.replace(/\?.*$/, "")))].slice(0, 18).map(src => ({ src: src + "?type=o1000", thumb: src + "?type=w300" }));
-  const name = (s.match(/"dispName":"([^"]{2,80})"/) || s.match(/<title>([^<]{2,80})<\/title>/i) || s.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) || [])[1] || "";
+  const og = (s.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) || [])[1];
+  const found = s.match(/https?:\/\/shop-phinf\.pstatic\.net\/[^"'\\\s<>)]+?\.(?:jpe?g|png|webp)/gi) || [];
+  const clean = u => u.replace(/\?.*$/, "");
+  const list = [...(og ? [clean(og)] : []), ...found.map(clean)];
+  const photos = [...new Set(list)].slice(0, 18).map(src => ({ src: src + "?type=o1000", thumb: src + "?type=w300" }));
+  const name = (s.match(/"dispName":"([^"]{2,80})"/) || s.match(/<title>([^<]{2,80})<\/title>/i) || [])[1] || "";
   return { source: "naver-shop", name: decode(name).replace(/\s*:\s*네이버.*$/, "").slice(0, 60), photos, note: photos.length ? undefined : "네이버 쇼핑 페이지에서 사진을 찾지 못했습니다. 잠시 후 다시 시도하거나 사진을 직접 올려 주세요." };
 }
 
@@ -100,7 +116,8 @@ module.exports = async (req, res) => {
     const id = /naver\.(com|me)/i.test(u) ? await naverPlaceId(u) : null;
     if (id) return res.json(await fromNaver(id));
     const { html, finalUrl } = await getHtml(u);
-    const out = fromGeneric(html, finalUrl);
+    let out = fromGeneric(html, finalUrl);
+    if (!out.photos.length) { try { out = fromGeneric(await fetchText("https://r.jina.ai/" + u, { "X-Return-Format": "html", "User-Agent": UA }), finalUrl); } catch (_) {} }
     if (!out.photos.length) out.note = "이 페이지에서는 사진을 찾지 못했습니다. 로그인이 필요하거나 화면을 스크립트로 그리는 사이트(인스타그램 등)는 가져올 수 없습니다.";
     res.json(out);
   } catch (e) { res.status(500).json({ error: "가져오기 실패: " + e.message + (e.cause ? ` (${e.cause.code || e.cause.message || ""})` : "") }); }
