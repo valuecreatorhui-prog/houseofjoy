@@ -222,7 +222,8 @@
     if (it) {
       f.category.value = it.category; f.name.value = it.name || ""; f.oneLine.value = it.oneLine || ""; f.price.value = it.price || ""; f.info.value = it.info || "";
       f.opinion.value = it.opinion || ""; f.forWhom.value = it.forWhom || ""; f.link.value = it.link || ""; f.importUrl.value = it.sourceUrl || ""; f.tags.value = (it.tags || []).join(", "); setRating(it.rating || 0);
-    } else setRating(0);
+      f.publishedAt.value = toLocalInput(it.publishedAt); $("#pubAtWrap").hidden = !it.publishedAt;
+    } else { setRating(0); f.publishedAt.value = ""; $("#pubAtWrap").hidden = true; }
     $("#compare").hidden = true; $("#linkPhotos").hidden = true; $("#linkPhotos").innerHTML = ""; $("#imageFile").value = "";
     renderSlots(); $("#deleteBtn").hidden = !it; msg($("#formMsg"), ""); showPanel("item"); renderList(); window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -234,8 +235,10 @@
       price: f.price.value.trim(), info: f.info.value.trim(), rating: Number($("#rating").value) || 0,
       opinion: f.opinion.value.trim(), forWhom: f.forWhom.value.trim(), link: f.link.value.trim(), sourceUrl: f.importUrl.value.trim(),
       tags: f.tags.value.split(",").map(s => s.trim()).filter(Boolean), draft,
+      publishedAt: f.publishedAt.value ? new Date(f.publishedAt.value).toISOString() : undefined,
     };
   }
+  const toLocalInput = iso => { if (!iso) return ""; const d = new Date(iso); const z = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; };
   /* 미리보기: 저장하지 않은 현재 내용을 사이트 상세 페이지 모양 그대로 새 탭에서 봅니다 (이 브라우저 안에서만). */
   function preview() {
     const images = slots.filter(Boolean).map(slotSrc);
@@ -272,12 +275,13 @@
       await commit(d => {
         const idx = d.items.findIndex(i => i.id === id); const prev = idx >= 0 ? d.items[idx] : null;
         item.createdAt = (prev && prev.createdAt) || new Date().toISOString();
-        item.publishedAt = (prev && prev.publishedAt) || (!item.draft ? new Date().toISOString() : undefined);   // 최초 게시 시각은 한 번 정해지면 바뀌지 않음
+        if (!item.publishedAt) item.publishedAt = (prev && prev.publishedAt) || (!item.draft ? new Date().toISOString() : undefined);   // 폼에 적은 값 > 기존 값 > 처음 게시면 지금
         if (!item.publishedAt) delete item.publishedAt;
         if (idx >= 0) d.items[idx] = item; else d.items.unshift(item);
         d.scenes.forEach(sc => { const had = sc.items.includes(id); if (chosen.includes(sc.id) && !had) sc.items.push(id); if (!chosen.includes(sc.id) && had) sc.items = sc.items.filter(x => x !== id); });
       });
       editingId = id; $("#formId").textContent = id; $("#formTitle").textContent = "글 수정"; $("#deleteBtn").hidden = false; renderSlots(); setFormState(!!asDraft); formDirty = false;
+      { const saved = state.items.find(i => i.id === id); f.publishedAt.value = toLocalInput(saved && saved.publishedAt); $("#pubAtWrap").hidden = !(saved && saved.publishedAt); }
       renderList(); msg($("#formMsg"), asDraft ? "임시저장했습니다. 사이트에는 보이지 않습니다. 공개하려면 \"게시\"를 누르세요." : "게시했습니다. 사이트에 바로 반영됩니다.", "ok");
     } catch (err) { msg($("#formMsg"), "저장 실패: " + err.message, "err"); }
     btn.disabled = dbtn.disabled = false;

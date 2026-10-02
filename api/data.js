@@ -21,8 +21,11 @@ module.exports = async (req, res) => {
     const items = d.items.map(it => {
       const p = prevById.get(it.id) || {}; const out = { ...it };
       out.createdAt = p.createdAt || it.createdAt || idTime(it.id) || now;
-      if (it.draft && it.publishedAt === null) delete out.publishedAt;   // 임시글에서 명시적으로 null → 게시 이력 지움 (다른 글을 덮어쓴 경우 정리용)
-      else if (!it.draft || p.publishedAt || it.publishedAt) out.publishedAt = p.publishedAt || it.publishedAt || now; else delete out.publishedAt;
+      if (it.publishedAt === null) delete out.publishedAt;                                   // 명시적으로 지움
+      else if (typeof it.publishedAt === "string" && !isNaN(Date.parse(it.publishedAt))) out.publishedAt = new Date(it.publishedAt).toISOString();   // 어드민이 정한 값
+      else if (p.publishedAt) out.publishedAt = p.publishedAt;                                // 값을 안 보낸 오래된 화면 → 이전 값 유지
+      else if (!it.draft) out.publishedAt = now;                                              // 처음 게시 → 지금
+      else delete out.publishedAt;
       return out;
     });
     const site = d.site && typeof d.site === "object" && !isArr(d.site) ? d.site : (prev.site || null);

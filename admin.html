@@ -75,6 +75,7 @@
               <label>참고 링크 (사이트에 "자세히 보기" 버튼으로 표시) <input name="link" type="url" placeholder="https:// 구매처, 지도, 블로그…"></label>
               <label>태그 (쉼표로 구분) <input name="tags" placeholder="아침, 빵, 1인"></label>
             </div>
+            <label id="pubAtWrap" hidden>최초 게시 일시 (사이트 정렬 기준 · 어드민에서만 보임, 사이트엔 안 나감) <input type="datetime-local" name="publishedAt" step="60"></label>
             <label>사진 가져올 링크 (어드민에서만 씀, 사이트에는 안 나감)
               <div class="linkrow"><input name="importUrl" type="url" placeholder="https:// 네이버 지도, 쇼핑몰 상품 페이지 등"><button type="button" class="btn ghost sm" id="linkPhotosBtn">링크에서 사진</button></div>
               <div id="linkPhotos" class="linkphotos" hidden></div>
@@ -227,6 +228,6 @@
     <div class="memo-resize" id="memoResize"></div>
   </section>
   <script src="data/site.js?v=27"></script>
-  <script src="admin.js?v=20"></script>
+  <script src="admin.js?v=21"></script>
 </body>
 </html>
