@@ -151,10 +151,19 @@ function run() {
 }
 
 /* 서버(/api/data)에서 최신 데이터를 받아 그립니다. 서버가 없을 때(로컬 미리보기)는 data/items.js 를 그대로 씁니다. */
+function displayOrder(items, manualOrder) {
+  const t = it => Date.parse(it.publishedAt || it.createdAt || 0) || 0;
+  const byDate = items.slice().sort((a, b) => t(b) - t(a));
+  if (!Array.isArray(manualOrder) || !manualOrder.length) return byDate;
+  const fixed = manualOrder.map(id => items.find(i => i.id === id)).filter(Boolean);
+  const rest = byDate.filter(i => !manualOrder.includes(i.id));
+  return [...rest, ...fixed];
+}
+window.displayOrder = displayOrder;
 (async function boot() {
   try {
     const r = await fetch("/api/data", { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); window.CATEGORIES = d.categories; window.SCENES = d.scenes; window.ITEMS = d.items; }
+    if (r.ok) { const d = await r.json(); window.CATEGORIES = d.categories; window.SCENES = d.scenes; window.ITEMS = displayOrder(d.items, d.manualOrder); }
   } catch (_) {}
   run();
 })();

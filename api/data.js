@@ -3,7 +3,7 @@ const isArr = Array.isArray;
 function publicView(d) {   // 임시저장(draft) 글은 사이트에 내보내지 않습니다.
   const items = d.items.filter(i => !i.draft).map(({ sourceUrl, ...rest }) => rest);   // sourceUrl(사진 가져온 링크)은 어드민 전용
   const ids = new Set(items.map(i => i.id));
-  return { categories: d.categories, scenes: d.scenes.map(s => ({ ...s, items: (s.items || []).filter(x => ids.has(x)) })), items };
+  return { categories: d.categories, scenes: d.scenes.map(s => ({ ...s, items: (s.items || []).filter(x => ids.has(x)) })), items, manualOrder: isArr(d.manualOrder) ? d.manualOrder : null };
 }
 module.exports = async (req, res) => {
   if (req.method === "GET") {
@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     if (!requireAuth(req, res)) return;
     const d = req.body;
     if (!d || !isArr(d.categories) || !isArr(d.scenes) || !isArr(d.items)) return res.status(400).json({ error: "형식이 올바르지 않습니다." });
-    await writeData({ categories: d.categories, scenes: d.scenes, items: d.items });
+    await writeData({ categories: d.categories, scenes: d.scenes, items: d.items, manualOrder: isArr(d.manualOrder) ? d.manualOrder.filter(x => typeof x === "string") : null });
     return res.json({ ok: true });
   }
   res.status(405).end();

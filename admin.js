@@ -86,16 +86,25 @@
   const msg = (el, text, cls = "") => { el.textContent = text; el.className = "msg " + cls; };
   const slug = p => { const d = new Date(), z = n => String(n).padStart(2, "0"); return `${p}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; };
   const catLabel = id => (state.categories.find(c => c.id === id) || {}).label || id;
-  const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#catForm").hidden = w !== "cat"; $("#empty").hidden = w !== "empty"; };
+  const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#catForm").hidden = w !== "cat"; $("#orderForm").hidden = w !== "order"; $("#empty").hidden = w !== "empty"; };
   function showLogin() { $("#login").hidden = false; $("#app").hidden = true; $("#logout").hidden = true; $("#memoFab").hidden = true; $("#memo").hidden = true; setTimeout(() => $("#password").focus(), 50); }
   const firstImage = it => (it.images && it.images[0]) || it.image || "";
+  const tOf = it => Date.parse(it.publishedAt || it.createdAt || 0) || 0;
+  function displayOrder(items, manualOrder) {   // 사이트와 같은 규칙
+    const byDate = items.slice().sort((a, b) => tOf(b) - tOf(a));
+    if (!Array.isArray(manualOrder) || !manualOrder.length) return byDate;
+    const fixed = manualOrder.map(id => items.find(i => i.id === id)).filter(Boolean);
+    return [...byDate.filter(i => !manualOrder.includes(i.id)), ...fixed];
+  }
+  const fmtDate = s => s ? new Date(s).toLocaleDateString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" }) : "";
+  const adminOrder = () => [...state.items.filter(i => i.draft).sort((a, b) => (Date.parse(b.createdAt || 0) || 0) - (Date.parse(a.createdAt || 0) || 0)), ...displayOrder(state.items.filter(i => !i.draft), state.manualOrder)];
 
   function renderList() {
     $("#count").textContent = state.items.length;
-    $("#list").innerHTML = state.items.map(it => `
+    $("#list").innerHTML = adminOrder().map(it => `
       <li data-id="${esc(it.id)}" class="${it.id === editingId ? "active" : ""}${it.draft ? " draft" : ""}">
         <div class="th">${firstImage(it) ? `<img src="${esc(firstImage(it))}" alt="">` : ""}</div>
-        <div><b>${it.draft ? '<span class="tag-draft">임시</span>' : ""}${esc(it.name)}</b><small>${esc(catLabel(it.category))} · ${esc(it.price || "")}</small></div>${hearts(it.rating)}
+        <div><b>${it.draft ? '<span class="tag-draft">임시</span>' : ""}${esc(it.name)}</b><small>${esc(catLabel(it.category))}${it.price ? " · " + esc(it.price) : ""}${it.publishedAt ? `<span class="date">게시 ${fmtDate(it.publishedAt)}</span>` : ""}</small></div>${hearts(it.rating)}
       </li>`).join("") || `<li class="help" style="cursor:default">아직 글이 없습니다.</li>`;
     $("#catList").innerHTML = state.categories.map(c => `
       <li data-cat="${esc(c.id)}" class="${c.id === editingCatId ? "active" : ""}">
@@ -233,7 +242,10 @@
       const item = buildItem(id, images, !!asDraft);
       const chosen = [...f.querySelectorAll('input[name="scene"]:checked')].map(c => c.value);
       await commit(d => {
-        const idx = d.items.findIndex(i => i.id === id);
+        const idx = d.items.findIndex(i => i.id === id); const prev = idx >= 0 ? d.items[idx] : null;
+        item.createdAt = (prev && prev.createdAt) || new Date().toISOString();
+        item.publishedAt = (prev && prev.publishedAt) || (!item.draft ? new Date().toISOString() : undefined);   // 최초 게시 시각은 한 번 정해지면 바뀌지 않음
+        if (!item.publishedAt) delete item.publishedAt;
         if (idx >= 0) d.items[idx] = item; else d.items.unshift(item);
         d.scenes.forEach(sc => { const had = sc.items.includes(id); if (chosen.includes(sc.id) && !had) sc.items.push(id); if (!chosen.includes(sc.id) && had) sc.items = sc.items.filter(x => x !== id); });
       });
@@ -292,6 +304,39 @@
     try { await commit(d => { d.scenes = d.scenes.filter(s => s.id !== sc.id); }); editingSceneId = null; renderList(); showPanel("empty"); }
     catch (err) { msg($("#sceneMsg"), "삭제 실패: " + err.message, "err"); }
   }
+
+  /* ── 순서 바꾸기 ── */
+  let orderIds = [];
+  function openOrder() {
+    editingId = editingSceneId = editingCatId = null;
+    orderIds = displayOrder(state.items.filter(i => !i.draft), state.manualOrder).map(i => i.id);
+    renderOrder(); msg($("#orderMsg"), ""); showPanel("order"); renderList();
+  }
+  function renderOrder() {
+    $("#orderMode").textContent = Array.isArray(state.manualOrder) && state.manualOrder.length ? "지금: 손으로 정한 순서" : "지금: 최초 게시일 순";
+    $("#orderList").innerHTML = orderIds.map((id, k) => { const it = state.items.find(i => i.id === id); return `
+      <li data-id="${esc(id)}"><span class="num">${k + 1}</span><span class="th">${firstImage(it) ? `<img src="${esc(firstImage(it))}" alt="">` : ""}</span>
+        <span><b>${esc(it.name)}</b><small>${esc(catLabel(it.category))}${it.publishedAt ? " · 게시 " + fmtDate(it.publishedAt) : ""}</small></span>
+        <span class="mv"><button type="button" data-mv="-1" ${k === 0 ? "disabled" : ""} title="위로">↑</button><button type="button" data-mv="1" ${k === orderIds.length - 1 ? "disabled" : ""} title="아래로">↓</button></span></li>`; }).join("")
+      || `<li class="help" style="display:block">게시된 글이 없습니다.</li>`;
+  }
+  $("#orderList").addEventListener("click", e => {
+    const b = e.target.closest("button[data-mv]"); if (!b) return;
+    const id = b.closest("li").dataset.id, k = orderIds.indexOf(id), j = k + Number(b.dataset.mv);
+    if (j < 0 || j >= orderIds.length) return; [orderIds[k], orderIds[j]] = [orderIds[j], orderIds[k]]; renderOrder();
+  });
+  $("#orderForm").addEventListener("submit", async e => {
+    e.preventDefault(); msg($("#orderMsg"), "저장 중…");
+    try { await commit(d => { d.manualOrder = orderIds.slice(); }); renderOrder(); renderList(); msg($("#orderMsg"), "저장했습니다. 사이트에 바로 반영됩니다.", "ok"); }
+    catch (err) { msg($("#orderMsg"), "저장 실패: " + err.message, "err"); }
+  });
+  $("#orderResetBtn").addEventListener("click", async () => {
+    if (!confirm("손으로 정한 순서를 지우고 최초 게시일 순으로 되돌릴까요?")) return; msg($("#orderMsg"), "저장 중…");
+    try { await commit(d => { d.manualOrder = null; }); openOrder(); msg($("#orderMsg"), "게시일 순으로 되돌렸습니다.", "ok"); }
+    catch (err) { msg($("#orderMsg"), "실패: " + err.message, "err"); }
+  });
+  $("#orderCancelBtn").addEventListener("click", () => { renderList(); showPanel("empty"); });
+  $("#orderBtn").addEventListener("click", openOrder);
 
   /* ── 갈래 ── */
   function openCat(id) {

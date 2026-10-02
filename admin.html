@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=12">
+  <link rel="stylesheet" href="admin.css?v=13">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
@@ -34,7 +34,7 @@
         <aside class="list-col">
           <div class="list-head">
             <h2>항목 <span id="count" class="n"></span></h2>
-            <button class="btn ghost sm" id="newBtn" type="button">+ 새 글</button>
+            <span class="btns"><button class="btn ghost sm" id="orderBtn" type="button">순서</button><button class="btn ghost sm" id="newBtn" type="button">+ 새 글</button></span>
           </div>
           <ul id="list" class="items"></ul>
 
@@ -144,6 +144,18 @@
             <p id="sceneMsg" class="msg"></p>
           </form>
 
+          <form id="orderForm" class="panel" hidden>
+            <div class="form-head"><h2>사이트에 보이는 순서</h2><span class="n" id="orderMode"></span></div>
+            <p class="help">기본은 <b>최초 게시일이 최근인 글이 위</b>입니다. 수정하거나 임시저장해도 순서는 바뀌지 않습니다. 아래에서 위·아래 버튼으로 옮기고 저장하면 그 순서가 우선합니다. (그 뒤에 새로 게시한 글은 맨 위에 붙습니다)</p>
+            <ol id="orderList" class="orderlist"></ol>
+            <div class="form-actions">
+              <button class="btn primary" type="submit">이 순서로 저장</button>
+              <button class="btn ghost" type="button" id="orderResetBtn">게시일 순으로 되돌리기</button>
+              <button class="btn ghost" type="button" id="orderCancelBtn">취소</button>
+            </div>
+            <p id="orderMsg" class="msg"></p>
+          </form>
+
           <form id="catForm" class="panel" hidden>
             <div class="form-head"><h2 id="catFormTitle">새 갈래</h2><span id="catFormId" class="n"></span></div>
             <label>이름 <input name="label" required placeholder="예: 책, 음악, 산책길"></label>
@@ -176,6 +188,6 @@
     <div class="memo-foot"><span class="n">이 메모는 암호화되어 따로 저장되며 사이트 어디에도 나가지 않습니다.</span><span class="n" id="memoSaved"></span></div>
     <div class="memo-resize" id="memoResize"></div>
   </section>
-  <script src="admin.js?v=16"></script>
+  <script src="admin.js?v=17"></script>
 </body>
 </html>
