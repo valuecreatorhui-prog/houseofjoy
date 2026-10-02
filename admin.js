@@ -86,8 +86,8 @@
   const msg = (el, text, cls = "") => { el.textContent = text; el.className = "msg " + cls; };
   const slug = p => { const d = new Date(), z = n => String(n).padStart(2, "0"); return `${p}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; };
   const catLabel = id => (state.categories.find(c => c.id === id) || {}).label || id;
-  const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#catForm").hidden = w !== "cat"; $("#orderForm").hidden = w !== "order"; $("#empty").hidden = w !== "empty"; };
-  function showLogin() { $("#login").hidden = false; $("#app").hidden = true; $("#logout").hidden = true; $("#memoFab").hidden = true; $("#memo").hidden = true; setTimeout(() => $("#password").focus(), 50); }
+  const showPanel = w => { $("#itemForm").hidden = w !== "item"; $("#sceneForm").hidden = w !== "scene"; $("#catForm").hidden = w !== "cat"; $("#orderForm").hidden = w !== "order"; $("#siteForm").hidden = w !== "site"; $("#empty").hidden = w !== "empty"; };
+  function showLogin() { $("#login").hidden = false; $("#app").hidden = true; $("#logout").hidden = true; $("#memoFab").hidden = true; $("#memo").hidden = true; $("#siteBtn").hidden = true; setTimeout(() => $("#password").focus(), 50); }
   const firstImage = it => (it.images && it.images[0]) || it.image || "";
   const tOf = it => Date.parse(it.publishedAt || it.createdAt || 0) || 0;
   function displayOrder(items, manualOrder) {   // 사이트와 같은 규칙
@@ -305,6 +305,48 @@
     catch (err) { msg($("#sceneMsg"), "삭제 실패: " + err.message, "err"); }
   }
 
+  /* ── 사이트 설정 (첫 화면 문구·소개·기준·연락처) ── */
+  const SITE_DEFAULTS = window.SITE || {};   // data/site.js 의 기본값
+  let crit = [];
+  function siteNow() { const s = state.site || {}; return { ...SITE_DEFAULTS, ...s, contact: { ...(SITE_DEFAULTS.contact || {}), ...(s.contact || {}) } }; }
+  function openSite() {
+    editingId = editingSceneId = editingCatId = null; const f = $("#siteForm"), s = siteNow();
+    f.name.value = s.name || ""; f.nameEn.value = s.nameEn || ""; f.tagline.value = s.tagline || ""; f.intro.value = s.intro || "";
+    f.aboutTitle.value = s.aboutTitle || ""; f.owner.value = s.owner || ""; f.aboutBody.value = s.aboutBody || "";
+    f.instagram.value = (s.contact || {}).instagram || ""; f.kakao.value = (s.contact || {}).kakao || ""; f.email.value = (s.contact || {}).email || ""; f.footerNote.value = s.footerNote || "";
+    crit = (s.criteria || []).map(c => ({ title: c.title || "", body: c.body || "" })); renderCrit();
+    msg($("#siteMsg"), ""); showPanel("site"); renderList(); window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function renderCrit() {
+    $("#critCount").textContent = crit.length ? `${crit.length}개` : "";
+    $("#critList").innerHTML = crit.map((c, i) => `
+      <div class="crit" data-i="${i}">
+        <input type="text" data-k="title" value="${esc(c.title)}" placeholder="제목 (예: 직접 겪은 것만)">
+        <span class="tools"><button type="button" data-act="up" title="위로" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" data-act="down" title="아래로" ${i === crit.length - 1 ? "disabled" : ""}>↓</button><button type="button" data-act="del" title="삭제">×</button></span>
+        <textarea rows="2" data-k="body" placeholder="설명">${esc(c.body)}</textarea>
+      </div>`).join("") || `<span class="help">기준이 없습니다. "+ 기준 추가"를 누르세요.</span>`;
+  }
+  $("#critList").addEventListener("input", e => { const el = e.target.closest("[data-k]"); if (!el) return; crit[Number(el.closest(".crit").dataset.i)][el.dataset.k] = el.value; });
+  $("#critList").addEventListener("click", e => {
+    const b = e.target.closest("button[data-act]"); if (!b) return; const i = Number(b.closest(".crit").dataset.i);
+    if (b.dataset.act === "del") crit.splice(i, 1); else { const j = i + (b.dataset.act === "up" ? -1 : 1); if (j < 0 || j >= crit.length) return; [crit[i], crit[j]] = [crit[j], crit[i]]; }
+    renderCrit();
+  });
+  $("#critAdd").addEventListener("click", () => { crit.push({ title: "", body: "" }); renderCrit(); const last = $("#critList .crit:last-child input"); if (last) last.focus(); });
+  $("#siteForm").addEventListener("submit", async e => {
+    e.preventDefault(); const f = $("#siteForm"); msg($("#siteMsg"), "저장 중…");
+    const site = {
+      name: f.name.value.trim(), nameEn: f.nameEn.value.trim(), tagline: f.tagline.value.trim(), intro: f.intro.value.trim(),
+      aboutTitle: f.aboutTitle.value.trim(), owner: f.owner.value.trim(), aboutBody: f.aboutBody.value.trim(),
+      criteria: crit.map(c => ({ title: c.title.trim(), body: c.body.trim() })).filter(c => c.title || c.body),
+      contact: { instagram: f.instagram.value.trim(), kakao: f.kakao.value.trim(), email: f.email.value.trim() }, footerNote: f.footerNote.value.trim(),
+    };
+    try { await commit(d => { d.site = site; }); msg($("#siteMsg"), "저장했습니다. 사이트에 바로 반영됩니다.", "ok"); }
+    catch (err) { msg($("#siteMsg"), "저장 실패: " + err.message, "err"); }
+  });
+  $("#siteCancelBtn").addEventListener("click", () => { renderList(); showPanel("empty"); });
+  $("#siteBtn").addEventListener("click", e => { e.preventDefault(); openSite(); });
+
   /* ── 순서 바꾸기 ── */
   let orderIds = [];
   function openOrder() {
@@ -402,7 +444,7 @@
 
   /* ── 시작/이벤트 ── */
   async function enter() {
-    $("#login").hidden = true; $("#app").hidden = false; $("#logout").hidden = false; $("#memoFab").hidden = false;
+    $("#login").hidden = true; $("#app").hidden = false; $("#logout").hidden = false; $("#memoFab").hidden = false; $("#siteBtn").hidden = false;
     await loadData(); renderList(); showPanel("empty");
     let open = "0"; try { open = localStorage.getItem("hoj_memo_open") || "0"; } catch (_) {} if (open === "1") memoOpen(true);
   }

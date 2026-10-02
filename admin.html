@@ -6,14 +6,14 @@
   <meta name="robots" content="noindex, nofollow">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="styles.css?v=20">
-  <link rel="stylesheet" href="admin.css?v=13">
+  <link rel="stylesheet" href="admin.css?v=14">
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <title>관리 — House of Joy</title>
 </head>
 <body data-page="admin">
   <header class="header"><div class="wrap">
     <a class="brand" href="/">House of Joy<small>ADMIN</small></a>
-    <nav class="nav"><a href="/" target="_blank" rel="noopener">사이트 보기 ↗</a><a href="#" id="logout" hidden>로그아웃</a></nav>
+    <nav class="nav"><a href="#" id="siteBtn" hidden>사이트 설정</a><a href="/" target="_blank" rel="noopener">사이트 보기 ↗</a><a href="#" id="logout" hidden>로그아웃</a></nav>
   </div></header>
 
   <main class="wrap admin">
@@ -144,6 +144,38 @@
             <p id="sceneMsg" class="msg"></p>
           </form>
 
+          <form id="siteForm" class="panel" hidden>
+            <div class="form-head"><h2>사이트 설정</h2><span class="n">첫 화면 문구, 소개 페이지, 고르는 기준, 연락처</span></div>
+            <div class="two">
+              <label>사이트 이름 <input name="name" required></label>
+              <label>이름 옆 작은 표기 (비우면 없음) <input name="nameEn"></label>
+            </div>
+            <label>첫 화면 큰 제목 <input name="tagline" required></label>
+            <label>첫 화면 소개 문장 (소개 페이지 첫 줄에도 쓰임) <textarea name="intro" rows="2"></textarea></label>
+            <div class="two">
+              <label>소개 페이지 제목 (비우면 "이름은 이런 곳입니다") <input name="aboutTitle"></label>
+              <label>운영자 표시 (비우면 숨김) <input name="owner"></label>
+            </div>
+            <label>소개 페이지 본문 (빈 줄로 문단 나눔) <textarea name="aboutBody" rows="6"></textarea></label>
+            <label>고르는 기준 <span class="n" id="critCount"></span>
+              <div id="critList" class="critlist"></div>
+              <button type="button" class="btn ghost sm" id="critAdd">+ 기준 추가</button>
+            </label>
+            <div class="two">
+              <label>인스타그램 주소 <input name="instagram" type="url" placeholder="https://instagram.com/…"></label>
+              <label>카카오톡 채널 주소 <input name="kakao" type="url" placeholder="https://pf.kakao.com/…"></label>
+            </div>
+            <div class="two">
+              <label>이메일 <input name="email" type="email"></label>
+              <label>푸터 한 줄 <input name="footerNote"></label>
+            </div>
+            <div class="form-actions">
+              <button class="btn primary" type="submit">저장 (사이트에 바로 반영)</button>
+              <button class="btn ghost" type="button" id="siteCancelBtn">취소</button>
+            </div>
+            <p id="siteMsg" class="msg"></p>
+          </form>
+
           <form id="orderForm" class="panel" hidden>
             <div class="form-head"><h2>사이트에 보이는 순서</h2><span class="n" id="orderMode"></span></div>
             <p class="help">기본은 <b>최초 게시일이 최근인 글이 위</b>입니다. 수정하거나 임시저장해도 순서는 바뀌지 않습니다. 아래에서 위·아래 버튼으로 옮기고 저장하면 그 순서가 우선합니다. (그 뒤에 새로 게시한 글은 맨 위에 붙습니다)</p>
@@ -188,6 +220,7 @@
     <div class="memo-foot"><span class="n">이 메모는 암호화되어 따로 저장되며 사이트 어디에도 나가지 않습니다.</span><span class="n" id="memoSaved"></span></div>
     <div class="memo-resize" id="memoResize"></div>
   </section>
-  <script src="admin.js?v=17"></script>
+  <script src="data/site.js?v=27"></script>
+  <script src="admin.js?v=18"></script>
 </body>
 </html>

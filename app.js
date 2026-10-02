@@ -134,13 +134,11 @@ function run() {
     const el = document.getElementById("about");
     el.innerHTML = `
       <div class="eyebrow">ABOUT</div>
-      <h1 class="page-title">${esc(S.name)}은 이런 곳입니다</h1>
+      <h1 class="page-title">${esc(S.aboutTitle || `${S.name}은 이런 곳입니다`)}</h1>
       <div class="prose" style="margin-top:20px">
         <p>${esc(S.intro)}</p>
-        <p>물건, 음식, 장소를 따로 보지 않고 <strong>먹는 즐거움이 있는 생활</strong>의 한 장면으로 묶어 소개합니다.
-        좋아하는 빵을 먹는 아침에는 접시 하나와 매트, 그 빵을 파는 곳. 포장해 온 음식을 먹는 저녁에는 양에 맞는 그릇과 잠깐 나가 앉을 카페처럼요.</p>
-        <p>소개하는 모든 것은 직접 구입하고, 먹어보고, 찾아간 것입니다. 광고와 협찬은 받지 않습니다.</p>
-        <p>운영: ${esc(S.owner)}</p>
+        ${String(S.aboutBody || "").split(/\n\s*\n/).filter(Boolean).map(t => `<p>${esc(t)}</p>`).join("")}
+        ${S.owner ? `<p>운영: ${esc(S.owner)}</p>` : ""}
       </div>`;
     const crit = document.getElementById("criteria");
     if (crit) crit.innerHTML = S.criteria.map((c, i) => `<div class="c"><div class="num">0${i + 1}</div><b>${esc(c.title)}</b><p>${esc(c.body)}</p></div>`).join("");
@@ -163,7 +161,7 @@ window.displayOrder = displayOrder;
 (async function boot() {
   try {
     const r = await fetch("/api/data", { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); window.CATEGORIES = d.categories; window.SCENES = d.scenes; window.ITEMS = displayOrder(d.items, d.manualOrder); }
+    if (r.ok) { const d = await r.json(); window.CATEGORIES = d.categories; window.SCENES = d.scenes; window.ITEMS = displayOrder(d.items, d.manualOrder); if (d.site) window.SITE = { ...window.SITE, ...d.site, contact: { ...(window.SITE.contact || {}), ...(d.site.contact || {}) } }; }
   } catch (_) {}
   run();
 })();

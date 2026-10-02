@@ -151,3 +151,12 @@ input[type="file"] { font-size: 13px; }
 .orderlist .mv button:hover { border-color: var(--ink); color: var(--ink); }
 .orderlist .mv button[disabled] { opacity: .3; pointer-events: none; }
 .items small .date { margin-left: 6px; }
+
+/* 고르는 기준 편집 */
+.critlist { display: grid; gap: 10px; margin: 8px 0 10px; }
+.crit { display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; padding: 12px; border: 1px solid var(--line); border-radius: 3px; }
+.crit input, .crit textarea { margin-top: 0; }
+.crit textarea { grid-column: 1; }
+.crit .tools { grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 4px; }
+.crit .tools button { width: 30px; height: 30px; border: 1px solid var(--line); background: var(--bg); border-radius: 3px; font: inherit; cursor: pointer; color: var(--ink-2); }
+.crit .tools button:hover { border-color: var(--ink); color: var(--ink); }

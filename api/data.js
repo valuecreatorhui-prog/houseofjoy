@@ -4,7 +4,7 @@ const idTime = id => { const m = /^(?:item|scene|cat)-(\d{4})(\d{2})(\d{2})-(\d{
 function publicView(d) {   // 임시저장(draft) 글은 사이트에 내보내지 않습니다.
   const items = d.items.filter(i => !i.draft).map(({ sourceUrl, ...rest }) => rest);   // sourceUrl(사진 가져온 링크)은 어드민 전용
   const ids = new Set(items.map(i => i.id));
-  return { categories: d.categories, scenes: d.scenes.map(s => ({ ...s, items: (s.items || []).filter(x => ids.has(x)) })), items, manualOrder: isArr(d.manualOrder) ? d.manualOrder : null };
+  return { categories: d.categories, scenes: d.scenes.map(s => ({ ...s, items: (s.items || []).filter(x => ids.has(x)) })), items, manualOrder: isArr(d.manualOrder) ? d.manualOrder : null, site: d.site || null };
 }
 module.exports = async (req, res) => {
   if (req.method === "GET") {
@@ -24,7 +24,8 @@ module.exports = async (req, res) => {
       if (!it.draft || p.publishedAt || it.publishedAt) out.publishedAt = p.publishedAt || it.publishedAt || now; else delete out.publishedAt;
       return out;
     });
-    await writeData({ categories: d.categories, scenes: d.scenes, items, manualOrder: isArr(d.manualOrder) ? d.manualOrder.filter(x => typeof x === "string") : null });
+    const site = d.site && typeof d.site === "object" && !isArr(d.site) ? d.site : (prev.site || null);
+    await writeData({ categories: d.categories, scenes: d.scenes, items, manualOrder: isArr(d.manualOrder) ? d.manualOrder.filter(x => typeof x === "string") : null, site });
     return res.json({ ok: true });
   }
   res.status(405).end();
