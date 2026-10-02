@@ -50,6 +50,18 @@ async function fromNaver(id) {
   return { source: "naver", name: nm ? nm[1] : "", photos };
 }
 
+/* ── 네이버 쇼핑(스마트스토어·브랜드스토어): 화면은 스크립트로 그리지만 HTML 안의 상품 JSON에 사진 주소가 들어 있습니다 ── */
+const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+async function fromNaverShop(url) {
+  const r = await fetch(url, { headers: { "User-Agent": MOBILE_UA, "Accept-Language": "ko-KR,ko;q=0.9", Accept: "text/html" }, redirect: "follow" });
+  const html = (await r.text()).slice(0, 3_000_000);
+  const s = html.replace(/\\u002F/g, "/").replace(/\\\//g, "/");
+  const found = s.match(/https?:\/\/shop-phinf\.pstatic\.net\/[^"'\\\s<>]+?\.(?:jpe?g|png|webp)/gi) || [];
+  const photos = [...new Set(found.map(u => u.replace(/\?.*$/, "")))].slice(0, 18).map(src => ({ src: src + "?type=o1000", thumb: src + "?type=w300" }));
+  const name = (s.match(/"dispName":"([^"]{2,80})"/) || s.match(/<title>([^<]{2,80})<\/title>/i) || s.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) || [])[1] || "";
+  return { source: "naver-shop", name: decode(name).replace(/\s*:\s*네이버.*$/, "").slice(0, 60), photos, note: photos.length ? undefined : "네이버 쇼핑 페이지에서 사진을 찾지 못했습니다. 잠시 후 다시 시도하거나 사진을 직접 올려 주세요." };
+}
+
 /* ── 일반 페이지: og:image → 본문 이미지(큰 것 위주) ── */
 function fromGeneric(html, base) {
   const abs = u => { try { return new URL(decode(u.trim()), base).href; } catch { return null; } };
@@ -84,6 +96,7 @@ module.exports = async (req, res) => {
   try {
     let u = String((req.body || {}).url || "").trim(); if (!u) return res.status(400).json({ error: "링크를 넣어 주세요." });
     if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    if (/(?:smartstore|brand|m\.brand|m\.smartstore)\.naver\.com\//i.test(u)) return res.json(await fromNaverShop(u));
     const id = /naver\.(com|me)/i.test(u) ? await naverPlaceId(u) : null;
     if (id) return res.json(await fromNaver(id));
     const { html, finalUrl } = await getHtml(u);
