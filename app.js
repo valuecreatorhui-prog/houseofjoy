@@ -159,9 +159,17 @@ function displayOrder(items, manualOrder) {
 }
 window.displayOrder = displayOrder;
 (async function boot() {
+  const q = new URLSearchParams(location.search);
+  let sitePreview = null;
+  if (q.get("preview") === "site") { try { const pv = JSON.parse(localStorage.getItem("hoj_preview_site") || "null"); if (pv && pv.site) sitePreview = pv.site; } catch (_) {} }
   try {
     const r = await fetch("/api/data", { cache: "no-store" });
     if (r.ok) { const d = await r.json(); window.CATEGORIES = d.categories; window.SCENES = d.scenes; window.ITEMS = displayOrder(d.items, d.manualOrder); if (d.site) window.SITE = { ...window.SITE, ...d.site, contact: { ...(window.SITE.contact || {}), ...(d.site.contact || {}) } }; }
   } catch (_) {}
+  if (sitePreview) {
+    window.SITE = { ...window.SITE, ...sitePreview, contact: { ...(window.SITE.contact || {}), ...(sitePreview.contact || {}) } };
+    const bar = document.createElement("div"); bar.className = "preview-bar"; bar.textContent = "사이트 설정 미리보기 · 저장 전 모습입니다. 이 탭은 나혜님 브라우저에서만 보입니다."; document.body.prepend(bar);
+    document.addEventListener("click", e => { const a = e.target.closest("a[href]"); if (!a) return; const u = new URL(a.href, location.href); if (u.origin === location.origin && /^\/(index\.html|about\.html|index|about)?$/.test(u.pathname) && !u.searchParams.get("preview")) { u.searchParams.set("preview", "site"); a.href = u.toString(); } }, true);
+  }
   run();
 })();

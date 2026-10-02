@@ -341,8 +341,20 @@
   const SITE_DEFAULTS = window.SITE || {};   // data/site.js 의 기본값
   let crit = [];
   function siteNow() { const s = state.site || {}; return { ...SITE_DEFAULTS, ...s, contact: { ...(SITE_DEFAULTS.contact || {}), ...(s.contact || {}) } }; }
+  function siteFromForm() {
+    const f = $("#siteForm");
+    return {
+      name: f.name.value.trim(), nameEn: f.nameEn.value.trim(), tagline: f.tagline.value.trim(), intro: f.intro.value.trim(),
+      aboutTitle: f.aboutTitle.value.trim(), owner: f.owner.value.trim(), aboutBody: f.aboutBody.value.trim(),
+      criteria: crit.map(c => ({ title: c.title.trim(), body: c.body.trim() })).filter(c => c.title || c.body),
+      contact: { instagram: f.instagram.value.trim(), kakao: f.kakao.value.trim(), email: f.email.value.trim() }, footerNote: f.footerNote.value.trim(),
+    };
+  }
+  function setSiteState(draft) { const el = $("#siteState"); el.hidden = !draft; el.textContent = "임시저장본 · 사이트에는 아직 반영 안 됨"; }
   function openSite() {
-    editingId = editingSceneId = editingCatId = null; const f = $("#siteForm"), s = siteNow();
+    editingId = editingSceneId = editingCatId = null; const f = $("#siteForm");
+    const s = state.siteDraft ? { ...siteNow(), ...state.siteDraft, contact: { ...(siteNow().contact || {}), ...(state.siteDraft.contact || {}) } } : siteNow();
+    setSiteState(!!state.siteDraft);
     f.name.value = s.name || ""; f.nameEn.value = s.nameEn || ""; f.tagline.value = s.tagline || ""; f.intro.value = s.intro || "";
     f.aboutTitle.value = s.aboutTitle || ""; f.owner.value = s.owner || ""; f.aboutBody.value = s.aboutBody || "";
     f.instagram.value = (s.contact || {}).instagram || ""; f.kakao.value = (s.contact || {}).kakao || ""; f.email.value = (s.contact || {}).email || ""; f.footerNote.value = s.footerNote || "";
@@ -366,15 +378,18 @@
   });
   $("#critAdd").addEventListener("click", () => { crit.push({ title: "", body: "" }); renderCrit(); const last = $("#critList .crit:last-child input"); if (last) last.focus(); });
   $("#siteForm").addEventListener("submit", async e => {
-    e.preventDefault(); const f = $("#siteForm"); msg($("#siteMsg"), "저장 중…");
-    const site = {
-      name: f.name.value.trim(), nameEn: f.nameEn.value.trim(), tagline: f.tagline.value.trim(), intro: f.intro.value.trim(),
-      aboutTitle: f.aboutTitle.value.trim(), owner: f.owner.value.trim(), aboutBody: f.aboutBody.value.trim(),
-      criteria: crit.map(c => ({ title: c.title.trim(), body: c.body.trim() })).filter(c => c.title || c.body),
-      contact: { instagram: f.instagram.value.trim(), kakao: f.kakao.value.trim(), email: f.email.value.trim() }, footerNote: f.footerNote.value.trim(),
-    };
-    try { await commit(d => { d.site = site; }); msg($("#siteMsg"), "저장했습니다. 사이트에 바로 반영됩니다.", "ok"); }
+    e.preventDefault(); msg($("#siteMsg"), "게시 중…"); const site = siteFromForm();
+    try { await commit(d => { d.site = site; d.siteDraft = null; }); setSiteState(false); msg($("#siteMsg"), "게시했습니다. 사이트에 바로 반영됩니다.", "ok"); }
     catch (err) { msg($("#siteMsg"), "저장 실패: " + err.message, "err"); }
+  });
+  $("#siteDraftBtn").addEventListener("click", async () => {
+    msg($("#siteMsg"), "임시저장 중…"); const site = siteFromForm();
+    try { await commit(d => { d.siteDraft = site; }); setSiteState(true); msg($("#siteMsg"), "임시저장했습니다. 사이트에는 반영되지 않았습니다. 반영하려면 \"게시\"를 누르세요.", "ok"); }
+    catch (err) { msg($("#siteMsg"), "저장 실패: " + err.message, "err"); }
+  });
+  $("#sitePreviewBtn").addEventListener("click", () => {
+    try { localStorage.setItem("hoj_preview_site", JSON.stringify({ site: siteFromForm(), at: Date.now() })); } catch (_) { return msg($("#siteMsg"), "미리보기 데이터를 저장하지 못했습니다.", "err"); }
+    window.open("/?preview=site", "hoj_preview_site");
   });
   $("#siteCancelBtn").addEventListener("click", () => { renderList(); showPanel("empty"); });
   $("#siteBtn").addEventListener("click", e => { e.preventDefault(); openSite(); });

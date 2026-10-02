@@ -29,7 +29,8 @@ module.exports = async (req, res) => {
       return out;
     });
     const site = d.site && typeof d.site === "object" && !isArr(d.site) ? d.site : (prev.site || null);
-    await writeData({ categories: d.categories, scenes: d.scenes, items, manualOrder: isArr(d.manualOrder) ? d.manualOrder.filter(x => typeof x === "string") : null, site });
+    const siteDraft = d.siteDraft === null ? null : (d.siteDraft && typeof d.siteDraft === "object" && !isArr(d.siteDraft) ? d.siteDraft : (prev.siteDraft || null));
+    await writeData({ categories: d.categories, scenes: d.scenes, items, manualOrder: isArr(d.manualOrder) ? d.manualOrder.filter(x => typeof x === "string") : null, site, siteDraft });
     return res.json({ ok: true });
   }
   res.status(405).end();
